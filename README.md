@@ -1,6 +1,6 @@
 # go-http-client [![Build Status](https://api.travis-ci.com/xgfone/go-http-client.svg?branch=master)](https://travis-ci.com/github/xgfone/go-http-client) [![GoDoc](https://pkg.go.dev/badge/github.com/xgfone/go-http-client)](https://pkg.go.dev/github.com/xgfone/go-http-client) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](https://raw.githubusercontent.com/xgfone/go-http-client/master/LICENSE)
 
-A chained go HTTP client.
+A chained go HTTP client supporting `Go1.8+`.
 
 ## Install
 

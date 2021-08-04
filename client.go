@@ -1,0 +1,500 @@
+// Copyright 2021 xgfone
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package httpclient
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"encoding/xml"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+)
+
+var bufpool = sync.Pool{New: func() interface{} {
+	return bytes.NewBuffer(make([]byte, 0, 1024))
+}}
+
+func getBuffer() *bytes.Buffer    { return bufpool.Get().(*bytes.Buffer) }
+func putBuffer(buf *bytes.Buffer) { buf.Reset(); bufpool.Put(buf) }
+
+// GetContentType returns the Content-Type from the header,
+// which will remove the charset part.
+func GetContentType(header http.Header) string {
+	ct := header.Get("Content-Type")
+	if index := strings.IndexAny(ct, ";"); index > 0 {
+		ct = strings.TrimSpace(ct[:index])
+	}
+	return ct
+}
+
+// EncodeData encodes the data by contentType and writes it into w.
+//
+// It writes the data into w directly instead of encoding it
+// if contentType is one of the types:
+//   - []byte
+//   - string
+//   - io.Reader
+//   - io.WriterTo
+//
+func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
+	switch v := data.(type) {
+	case *bytes.Buffer:
+		_, err = w.Write(v.Bytes())
+	case io.Reader:
+		_, err = io.CopyBuffer(w, v, make([]byte, 1024))
+	case []byte:
+		_, err = w.Write(v)
+	case string:
+		_, err = io.WriteString(w, v)
+	case io.WriterTo:
+		_, err = v.WriteTo(w)
+	default:
+		switch contentType {
+		case "":
+			err = errors.New("no request header Content-Type")
+		case "application/xml":
+			err = xml.NewEncoder(w).Encode(data)
+		case "application/json":
+			err = json.NewEncoder(w).Encode(data)
+		default:
+			err = fmt.Errorf("unsupported request Content-Type '%s'", contentType)
+		}
+	}
+	return
+}
+
+// DecodeFromReader reads the data from r and decode it to dst.
+//
+// If ct is equal to "application/xml" or "application/json", it will use
+// the xml or json decoder to decode the data. Or returns an error.
+func DecodeFromReader(dst interface{}, ct string, r io.Reader) (err error) {
+	switch ct {
+	case "":
+		err = errors.New("no response header Content-Type")
+	case "application/xml":
+		err = xml.NewDecoder(r).Decode(dst)
+	case "application/json":
+		err = json.NewDecoder(r).Decode(dst)
+	default:
+		err = fmt.Errorf("unsupported response Content-Type '%s'", ct)
+	}
+	return
+}
+
+func responseHandler2xx(dst interface{}, resp *http.Response) (err error) {
+	return DecodeFromReader(dst, GetContentType(resp.Header), resp.Body)
+}
+
+func responseHandler4xx5xx(dst interface{}, resp *http.Response) (err error) {
+	buf := getBuffer()
+	io.CopyBuffer(buf, resp.Body, make([]byte, 256))
+	err = errors.New(buf.String())
+	putBuffer(buf)
+	return
+}
+
+type (
+	// Encoder is used to encode the data by the content type to dst.
+	Encoder func(dst io.Writer, contentType string, data interface{}) error
+
+	// Decoder is used to decode the data by the content type to dst.
+	Decoder func(dst interface{}, contentType string, data io.Reader) error
+
+	// Handler is used to handle the response.
+	Handler func(dst interface{}, resp *http.Response) error
+)
+
+type respHandler struct {
+	H1xx Handler
+	H2xx Handler
+	H3xx Handler
+	H4xx Handler
+	H5xx Handler
+}
+
+// Client is a http client to build a request and parse the response.
+type Client struct {
+	client  *http.Client
+	header  http.Header
+	baseurl *url.URL
+	encoder Encoder
+	handler respHandler
+}
+
+// NewClient returns a new Client with the http client.
+func NewClient(client *http.Client) *Client {
+	c := &Client{
+		client:  client,
+		header:  make(http.Header, 4),
+		encoder: EncodeData,
+	}
+	c.SetContentType("application/json; charset=UTF-8")
+	c.SetResponseHandler2xx(responseHandler2xx)
+	c.SetResponseHandler4xx(responseHandler4xx5xx)
+	c.SetResponseHandler5xx(responseHandler4xx5xx)
+	return c
+}
+
+// Clone clones itself to a new one.
+func (c *Client) Clone() *Client {
+	return &Client{
+		client:  c.client,
+		header:  c.header.Clone(),
+		baseurl: c.baseurl,
+		encoder: c.encoder,
+		handler: c.handler,
+	}
+}
+
+// SetClient resets the http client.
+func (c *Client) SetClient(client *http.Client) *Client {
+	c.client = client
+	return c
+}
+
+// SetBaseURL sets the default base url.
+//
+// If baseurl is empty, it will clear the base url.
+func (c *Client) SetBaseURL(baseurl string) *Client {
+	if baseurl == "" {
+		c.baseurl = nil
+	} else if u, err := url.Parse(baseurl); err != nil {
+		panic(fmt.Errorf("invalid base url '%s'", baseurl))
+	} else {
+		c.baseurl = u
+	}
+	return c
+}
+
+// AddHeader adds the default request header as "key: value".
+func (c *Client) AddHeader(key, value string) *Client {
+	c.header.Add(key, value)
+	return c
+}
+
+// SetHeader sets the default request header as "key: value".
+func (c *Client) SetHeader(key, value string) *Client {
+	c.header.Set(key, value)
+	return c
+}
+
+// SetContentType sets the default Content-Type, which is equal to
+// SetHeader("Content-Type", ct).
+//
+// The default Content-Type is "application/json; charset=UTF-8".
+func (c *Client) SetContentType(ct string) *Client {
+	return c.SetHeader("Content-Type", ct)
+}
+
+// SetAccepts resets the accepted types of the response body to accepts.
+func (c *Client) SetAccepts(accepts ...string) *Client {
+	c.header["Accept"] = accepts
+	return c
+}
+
+// AddAccept adds the accepted types of the response body, which is equal to
+// AddHeader("Accept", contentType).
+func (c *Client) AddAccept(contentType string) *Client {
+	return c.AddHeader("Accept", contentType)
+}
+
+// SetReqBodyEncoder sets the encoder to encode the request body.
+//
+// The default encoder is EncodeData.
+func (c *Client) SetReqBodyEncoder(encode Encoder) *Client {
+	c.encoder = encode
+	return c
+}
+
+// SetResponseHandler1xx sets the handler of the response status code 1xx.
+func (c *Client) SetResponseHandler1xx(handler Handler) *Client {
+	c.handler.H1xx = handler
+	return c
+}
+
+// SetResponseHandler2xx sets the handler of the response status code 2xx.
+//
+// The default handler uses DecodeFromReader to decode the response body.
+func (c *Client) SetResponseHandler2xx(handler Handler) *Client {
+	c.handler.H2xx = handler
+	return c
+}
+
+// SetResponseHandler3xx sets the handler of the response status code 3xx.
+func (c *Client) SetResponseHandler3xx(handler Handler) *Client {
+	c.handler.H3xx = handler
+	return c
+}
+
+// SetResponseHandler4xx sets the handler of the response status code 4xx.
+//
+// The default handler reads the response body as the error and returns it.
+func (c *Client) SetResponseHandler4xx(handler Handler) *Client {
+	c.handler.H4xx = handler
+	return c
+}
+
+// SetResponseHandler5xx sets the handler of the response status code 5xx.
+//
+// The default handler reads the response body as the error and returns it.
+func (c *Client) SetResponseHandler5xx(handler Handler) *Client {
+	c.handler.H5xx = handler
+	return c
+}
+
+// Get is a convenient function, which is equal to Request(http.MethodGet, url).
+func (c *Client) Get(url string) *Request {
+	return c.Request(http.MethodGet, url)
+}
+
+// Put is a convenient function, which is equal to Request(http.MethodPut, url).
+func (c *Client) Put(url string) *Request {
+	return c.Request(http.MethodPut, url)
+}
+
+// Head is a convenient function, which is equal to Request(http.MethodHead, url).
+func (c *Client) Head(url string) *Request {
+	return c.Request(http.MethodHead, url)
+}
+
+// Post is a convenient function, which is equal to Request(http.MethodPost, url).
+func (c *Client) Post(url string) *Request {
+	return c.Request(http.MethodPost, url)
+}
+
+// Patch is a convenient function, which is equal to Request(http.MethodPatch, url).
+func (c *Client) Patch(url string) *Request {
+	return c.Request(http.MethodPatch, url)
+}
+
+// Delete is a convenient function, which is equal to Request(http.MethodDelete, url).
+func (c *Client) Delete(url string) *Request {
+	return c.Request(http.MethodDelete, url)
+}
+
+// Options is a convenient function, which is equal to Request(http.MethodOptions, url).
+func (c *Client) Options(url string) *Request {
+	return c.Request(http.MethodOptions, url)
+}
+
+// Request builds and returns a new request.
+func (c *Client) Request(method, requrl string) *Request {
+	_url := requrl
+
+	var err error
+	if !strings.HasPrefix(requrl, "http") {
+		var u *url.URL
+		if c.baseurl == nil {
+			err = fmt.Errorf("invalid request url '%s'", requrl)
+		} else if u, err = url.Parse(requrl); err == nil {
+			_url = c.baseurl.ResolveReference(u).String()
+		}
+	}
+
+	return &Request{
+		encoder: c.encoder,
+		handler: c.handler,
+		client:  c.client,
+		header:  c.header.Clone(),
+		method:  method,
+		url:     _url,
+		err:     err,
+	}
+}
+
+// Request is a http request.
+type Request struct {
+	encoder Encoder
+	handler respHandler
+	reqbody io.Reader
+	client  *http.Client
+	header  http.Header
+	method  string
+	url     string
+	err     error
+}
+
+// AddHeader adds the request header as "key: value".
+func (r *Request) AddHeader(key, value string) *Request {
+	r.header.Add(key, value)
+	return r
+}
+
+// SetHeader adds the request header as "key: value".
+func (r *Request) SetHeader(key, value string) *Request {
+	r.header.Set(key, value)
+	return r
+}
+
+// SetContentType sets the default Content-Type, which is equal to
+// SetHeader("Content-Type", ct).
+func (r *Request) SetContentType(ct string) *Request {
+	return r.SetHeader("Content-Type", ct)
+}
+
+// SetAccepts resets the accepted types of the response body to accepts.
+func (r *Request) SetAccepts(accepts ...string) *Request {
+	r.header["Accept"] = accepts
+	return r
+}
+
+// AddAccept adds the accepted types of the response body, which is equal to
+// AddHeader("Accept", contentType).
+func (r *Request) AddAccept(contentType string) *Request {
+	return r.AddHeader("Accept", contentType)
+}
+
+// SetBody sets the body of the request.
+func (r *Request) SetBody(body interface{}) *Request {
+	if r.err == nil && body != nil {
+		buf := getBuffer()
+		r.reqbody = buf
+		r.err = r.encoder(buf, GetContentType(r.header), body)
+	}
+	return r
+}
+
+// Do sends the http request, decodes the body into result,
+// and returns the response.
+func (r *Request) Do(c context.Context, result interface{}) *Response {
+	if r.err != nil {
+		return &Response{err: r.err}
+	}
+
+	req, err := NewRequestWithContext(c, r.method, r.url, r.reqbody)
+	if err != nil {
+		return &Response{err: err}
+	}
+
+	if len(req.Header) == 0 {
+		req.Header = r.header
+	} else {
+		for k, vs := range r.header {
+			req.Header[k] = vs
+		}
+	}
+
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return &Response{err: err, req: req, resp: resp}
+	} else if resp.StatusCode < 200 { // 1xx
+		if r.handler.H1xx != nil {
+			err = r.handler.H1xx(result, resp)
+		}
+	} else if resp.StatusCode < 300 { // 2xx
+		if r.handler.H2xx != nil {
+			err = r.handler.H2xx(result, resp)
+		}
+	} else if resp.StatusCode < 400 { // 3xx
+		if r.handler.H3xx != nil {
+			err = r.handler.H3xx(result, resp)
+		}
+	} else if resp.StatusCode < 500 { // 4xx
+		if r.handler.H4xx != nil {
+			err = r.handler.H4xx(result, resp)
+		}
+	} else { // 5xx
+		if r.handler.H5xx != nil {
+			err = r.handler.H5xx(result, resp)
+		}
+	}
+
+	return &Response{err: err, req: req, resp: resp}
+}
+
+// Response is a http response.
+type Response struct {
+	err  error
+	req  *http.Request
+	resp *http.Response
+}
+
+// Close closes the body of the response if it exists.
+func (r *Response) Close() *Response {
+	if r.resp != nil {
+		r.resp.Body.Close()
+	}
+	return r
+}
+
+// Unwrap returns the inner error to support errors.Unwrap().
+func (r *Response) Unwrap() error { return r.err }
+
+// Error implements the interface error.
+//
+// Please use the method Unwrap instead if expecting the error type.
+func (r *Response) Error() string {
+	if r.err == nil {
+		return ""
+	}
+	return r.err.Error()
+}
+
+// Result returns the response result.
+func (r *Response) Result() (*http.Response, error) { return r.resp, r.err }
+
+// Request returns http.Request.
+func (r *Response) Request() *http.Request { return r.req }
+
+// Response returns http.Response.
+func (r *Response) Response() *http.Response { return r.resp }
+
+// StatusCode returns the status code.
+//
+// Return 0 if there is an error when sending the request.
+func (r *Response) StatusCode() int {
+	if r.resp == nil {
+		return 0
+	}
+	return r.resp.StatusCode
+}
+
+// ContentLength returns the length of the response body,
+// which is the value of the header "Content-Length".
+//
+// Return 0 if there is an error when sending the request.
+func (r *Response) ContentLength() int64 {
+	if r.resp == nil {
+		return 0
+	}
+	return r.resp.ContentLength
+}
+
+// ContentType returns the type of the response body,
+// which is the value of the header "Content-Type".
+//
+// Return "" if there is an error when sending the request.
+func (r *Response) ContentType() string {
+	if r.resp == nil {
+		return ""
+	}
+	return GetContentType(r.resp.Header)
+}
+
+// Body returns the response body,
+//
+// Return nil if there is an error when sending the request.
+func (r *Response) Body() io.ReadCloser {
+	if r.resp == nil {
+		return nil
+	}
+	return r.resp.Body
+}

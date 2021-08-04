@@ -31,3 +31,23 @@ func NewRequestWithContext(ctx context.Context, method, url string,
 	}
 	return req, err
 }
+
+func cloneHeader(h http.Header) http.Header {
+	if h == nil {
+		return nil
+	}
+
+	// Find total number of values.
+	nv := 0
+	for _, vv := range h {
+		nv += len(vv)
+	}
+	sv := make([]string, nv) // shared backing array for headers' values
+	h2 := make(Header, len(h))
+	for k, vv := range h {
+		n := copy(sv, vv)
+		h2[k] = sv[:n:n]
+		sv = sv[n:]
+	}
+	return h2
+}

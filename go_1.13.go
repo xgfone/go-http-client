@@ -27,3 +27,5 @@ func NewRequestWithContext(ctx context.Context, method, url string,
 	body io.Reader) (*http.Request, error) {
 	return http.NewRequestWithContext(ctx, method, url, body)
 }
+
+func cloneHeader(h http.Header) http.Header { return h.Clone() }

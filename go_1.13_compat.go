@@ -43,7 +43,7 @@ func cloneHeader(h http.Header) http.Header {
 		nv += len(vv)
 	}
 	sv := make([]string, nv) // shared backing array for headers' values
-	h2 := make(Header, len(h))
+	h2 := make(http.Header, len(h))
 	for k, vv := range h {
 		n := copy(sv, vv)
 		h2[k] = sv[:n:n]

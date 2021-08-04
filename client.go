@@ -157,7 +157,7 @@ func NewClient(client *http.Client) *Client {
 func (c *Client) Clone() *Client {
 	return &Client{
 		client:  c.client,
-		header:  c.header.Clone(),
+		header:  cloneHeader(c.header),
 		baseurl: c.baseurl,
 		encoder: c.encoder,
 		handler: c.handler,
@@ -313,7 +313,7 @@ func (c *Client) Request(method, requrl string) *Request {
 		encoder: c.encoder,
 		handler: c.handler,
 		client:  c.client,
-		header:  c.header.Clone(),
+		header:  cloneHeader(c.header),
 		method:  method,
 		url:     _url,
 		err:     err,

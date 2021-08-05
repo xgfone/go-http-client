@@ -14,7 +14,10 @@
 
 package httpclient
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+)
 
 // DefaultClient is the default global client.
 var DefaultClient = NewClient(http.DefaultClient)
@@ -42,3 +45,43 @@ func Delete(url string) *Request { return DefaultClient.Delete(url) }
 
 // Options is equal to DefaultClient.Options(url).
 func Options(url string) *Request { return DefaultClient.Options(url) }
+
+// GetJSON is a convenient function to get the JSON data from the remote server.
+func GetJSON(url string, respBody interface{}) error {
+	return Get(url).
+		SetContentType("application/json; charset=UTF-8").
+		SetAccepts("application/json").
+		Do(context.Background(), respBody).
+		Close().
+		Unwrap()
+}
+
+// PutJSON is a convenient function to send the JSON data with the method PUT.
+func PutJSON(url string, reqBody interface{}) error {
+	return requestJSON(Put(url), reqBody)
+}
+
+// PostJSON is a convenient function to put the JSON data with the method POST.
+func PostJSON(url string, reqBody interface{}) error {
+	return requestJSON(Post(url), reqBody)
+}
+
+// PatchJSON is a convenient function to put the JSON data with the method PATCH.
+func PatchJSON(url string, reqBody interface{}) error {
+	return requestJSON(Patch(url), reqBody)
+}
+
+// DeleteJSON is a convenient function to the JSON data to with the method DELETE.
+func DeleteJSON(url string, reqBody interface{}) error {
+	return requestJSON(Delete(url), reqBody)
+}
+
+func requestJSON(req *Request, reqBody interface{}) error {
+	return req.
+		SetContentType("application/json; charset=UTF-8").
+		SetAccepts("application/json").
+		SetBody(reqBody).
+		Do(context.Background(), nil).
+		Close().
+		Unwrap()
+}

@@ -93,12 +93,13 @@ func TestClient2(t *testing.T) {
 	defer server.Shutdown(context.TODO())
 	time.Sleep(time.Second)
 
-	_, err := DefaultClient.
-		Get("http://localhost:12346/").
-		Do(context.Background(), nil).
-		Result()
-
-	if err != nil {
+	var result struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := GetJSON("http://localhost:12346/", &result); err != nil {
 		t.Error(err)
+	} else if result.Username != "xgfone" || result.Password != "123456" {
+		t.Error(result)
 	}
 }

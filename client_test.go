@@ -29,7 +29,10 @@ func TestClient(t *testing.T) {
 			Name string `json:"name"`
 		}
 
-		if v := r.Header.Get("Key"); v != "value" {
+		if r.URL.Path != "/base/path/to" {
+			rw.WriteHeader(404)
+			fmt.Fprintf(rw, "not found '%s'", r.URL.Path)
+		} else if v := r.Header.Get("Key"); v != "value" {
 			rw.WriteHeader(400)
 			fmt.Fprintf(rw, "unknown header Key: %s", v)
 		} else if v := r.Header.Get("Accept"); v != "application/json" {
@@ -60,7 +63,9 @@ func TestClient(t *testing.T) {
 		Password string `json:"password"`
 	}
 
-	_, err := Get("http://localhost:12345").
+	_, err := DefaultClient.
+		SetBaseURL("http://localhost:12345/base/").
+		Get("path/to").
 		AddHeader("Key", "value").
 		AddAccept("application/json").
 		SetBody(map[string]string{"name": "xgfone"}).
@@ -71,5 +76,29 @@ func TestClient(t *testing.T) {
 		t.Error(err)
 	} else if result.Username != "xgfone" || result.Password != "123456" {
 		t.Error(result)
+	}
+}
+
+func TestClient2(t *testing.T) {
+	handler := http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(200)
+		json.NewEncoder(rw).Encode(map[string]string{
+			"username": "xgfone",
+			"password": "123456",
+		})
+	})
+	server := &http.Server{Addr: "localhost:12346", Handler: handler}
+	go server.ListenAndServe()
+	defer server.Shutdown(context.TODO())
+	time.Sleep(time.Second)
+
+	_, err := DefaultClient.
+		Get("http://localhost:12346/").
+		Do(context.Background(), nil).
+		Result()
+
+	if err != nil {
+		t.Error(err)
 	}
 }

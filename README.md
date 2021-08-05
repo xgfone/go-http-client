@@ -37,13 +37,51 @@ func main() {
 	}
 
 	err := client.
-		Get("http://127.0.0.1/path").
+		Get("http://127.0.0.1/path"). // Or SetBaseURL("http://localhost:12345").Get("/path").
 		AddAccept("application/xml").
-		SetBody(map[string]string{"username": "xgfone", "password": "123456"}).
-		Do(context.Background(), &result).
-		Close().
-		Unwrap()
+		AddHeader("X-Header1", "value1").
+		SetHeader("X-Header2", "value2").
+		AddQuery("querykey1", "queryvalue1").
+		SetQuery("querykey2", "queryvalue2").
 
+		// Use the encoder referring to the request header "Content-Type" to encode the body.
+		SetBody(map[string]string{"username": "xgfone", "password": "123456"}).
+
+		// Also use other body types:
+		// SetBody([]byte(`this is the body as the type []byte`)).
+		// SetBody("this is the body as the type string").
+		// SetBody(bytes.NewBufferString("this is the body as the type io.Reader")).
+
+		// Use the decoder referring to the response header "Content-Type" to decode the body into result.
+		Do(context.Background(), &result).
+		Close(). // Ensure that the response body is closed.
+		Unwrap() // Return the inner error.
+
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(result)
+	}
+}
+```
+
+If the request is about JSON, you maybe use these convenient functions, such as `GetJSON`, `PutJSON`, `PostJSON`, `DeleteJSON`, etc.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	httpclient "github.com/xgfone/go-http-client"
+)
+
+func main() {
+	var result struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	err := httpclient.GetJSON("http://127.0.0.1/json_data", &result)
 	if err != nil {
 		fmt.Println(err)
 	} else {

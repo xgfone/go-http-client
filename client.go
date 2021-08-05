@@ -35,6 +35,10 @@ var bufpool = sync.Pool{New: func() interface{} {
 func getBuffer() *bytes.Buffer    { return bufpool.Get().(*bytes.Buffer) }
 func putBuffer(buf *bytes.Buffer) { buf.Reset(); bufpool.Put(buf) }
 
+func cloneQuery(query url.Values) url.Values {
+	return url.Values(cloneHeader(http.Header(query)))
+}
+
 // GetContentType returns the Content-Type from the header,
 // which will remove the charset part.
 func GetContentType(header http.Header) string {
@@ -86,15 +90,17 @@ func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 // If ct is equal to "application/xml" or "application/json", it will use
 // the xml or json decoder to decode the data. Or returns an error.
 func DecodeFromReader(dst interface{}, ct string, r io.Reader) (err error) {
-	switch ct {
-	case "":
-		err = errors.New("no response header Content-Type")
-	case "application/xml":
-		err = xml.NewDecoder(r).Decode(dst)
-	case "application/json":
-		err = json.NewDecoder(r).Decode(dst)
-	default:
-		err = fmt.Errorf("unsupported response Content-Type '%s'", ct)
+	if dst != nil {
+		switch ct {
+		case "":
+			err = errors.New("no response header Content-Type")
+		case "application/xml":
+			err = xml.NewDecoder(r).Decode(dst)
+		case "application/json":
+			err = json.NewDecoder(r).Decode(dst)
+		default:
+			err = fmt.Errorf("unsupported response Content-Type '%s'", ct)
+		}
 	}
 	return
 }
@@ -132,8 +138,9 @@ type respHandler struct {
 
 // Client is a http client to build a request and parse the response.
 type Client struct {
-	client  *http.Client
+	query   url.Values
 	header  http.Header
+	client  *http.Client
 	baseurl *url.URL
 	encoder Encoder
 	handler respHandler
@@ -143,6 +150,7 @@ type Client struct {
 func NewClient(client *http.Client) *Client {
 	c := &Client{
 		client:  client,
+		query:   make(url.Values, 4),
 		header:  make(http.Header, 4),
 		encoder: EncodeData,
 	}
@@ -157,6 +165,7 @@ func NewClient(client *http.Client) *Client {
 func (c *Client) Clone() *Client {
 	return &Client{
 		client:  c.client,
+		query:   cloneQuery(c.query),
 		header:  cloneHeader(c.header),
 		baseurl: c.baseurl,
 		encoder: c.encoder,
@@ -181,6 +190,18 @@ func (c *Client) SetBaseURL(baseurl string) *Client {
 	} else {
 		c.baseurl = u
 	}
+	return c
+}
+
+// AddQuery appends the value for the query key.
+func (c *Client) AddQuery(key, value string) *Client {
+	c.query.Add(key, value)
+	return c
+}
+
+// SetQuery sets the query key to the value.
+func (c *Client) SetQuery(key, value string) *Client {
+	c.query.Set(key, value)
 	return c
 }
 
@@ -314,6 +335,7 @@ func (c *Client) Request(method, requrl string) *Request {
 		handler: c.handler,
 		client:  c.client,
 		header:  cloneHeader(c.header),
+		query:   cloneQuery(c.query),
 		method:  method,
 		url:     _url,
 		err:     err,
@@ -327,9 +349,22 @@ type Request struct {
 	reqbody io.Reader
 	client  *http.Client
 	header  http.Header
+	query   url.Values
 	method  string
 	url     string
 	err     error
+}
+
+// AddQuery appends the value for the query key.
+func (r *Request) AddQuery(key, value string) *Request {
+	r.query.Add(key, value)
+	return r
+}
+
+// SetQuery sets the query key to the value.
+func (r *Request) SetQuery(key, value string) *Request {
+	r.query.Set(key, value)
+	return r
 }
 
 // AddHeader adds the request header as "key: value".
@@ -386,9 +421,20 @@ func (r *Request) Do(c context.Context, result interface{}) *Response {
 
 	if len(req.Header) == 0 {
 		req.Header = r.header
-	} else {
+	} else if len(r.header) > 0 {
 		for k, vs := range r.header {
 			req.Header[k] = vs
+		}
+	}
+
+	if len(r.query) > 0 {
+		if query := req.URL.Query(); len(query) == 0 {
+			req.URL.RawQuery = r.query.Encode()
+		} else {
+			for k, vs := range r.query {
+				query[k] = vs
+			}
+			req.URL.RawQuery = query.Encode()
 		}
 	}
 

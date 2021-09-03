@@ -105,11 +105,15 @@ func DecodeFromReader(dst interface{}, ct string, r io.Reader) (err error) {
 	return
 }
 
-func responseHandler2xx(dst interface{}, resp *http.Response) (err error) {
+// DecodeResponseBody is a response handler to decode the response body
+// into dst.
+func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
 	return DecodeFromReader(dst, GetContentType(resp.Header), resp.Body)
 }
 
-func responseHandler4xx5xx(dst interface{}, resp *http.Response) (err error) {
+// ReadResponseBodyAsError is a response handler to read the response body
+// as the error to be returned.
+func ReadResponseBodyAsError(dst interface{}, resp *http.Response) (err error) {
 	buf := getBuffer()
 	io.CopyBuffer(buf, resp.Body, make([]byte, 256))
 	err = errors.New(buf.String())
@@ -155,9 +159,9 @@ func NewClient(client *http.Client) *Client {
 		encoder: EncodeData,
 	}
 	c.SetContentType("application/json; charset=UTF-8")
-	c.SetResponseHandler2xx(responseHandler2xx)
-	c.SetResponseHandler4xx(responseHandler4xx5xx)
-	c.SetResponseHandler5xx(responseHandler4xx5xx)
+	c.SetResponseHandler2xx(DecodeResponseBody)
+	c.SetResponseHandler4xx(ReadResponseBodyAsError)
+	c.SetResponseHandler5xx(ReadResponseBodyAsError)
 	return c
 }
 
@@ -246,6 +250,8 @@ func (c *Client) SetReqBodyEncoder(encode Encoder) *Client {
 }
 
 // SetResponseHandler1xx sets the handler of the response status code 1xx.
+//
+// Default: nil
 func (c *Client) SetResponseHandler1xx(handler Handler) *Client {
 	c.handler.H1xx = handler
 	return c
@@ -253,13 +259,15 @@ func (c *Client) SetResponseHandler1xx(handler Handler) *Client {
 
 // SetResponseHandler2xx sets the handler of the response status code 2xx.
 //
-// The default handler uses DecodeFromReader to decode the response body.
+// Default: DecodeResponseBody
 func (c *Client) SetResponseHandler2xx(handler Handler) *Client {
 	c.handler.H2xx = handler
 	return c
 }
 
 // SetResponseHandler3xx sets the handler of the response status code 3xx.
+//
+// Default: nil
 func (c *Client) SetResponseHandler3xx(handler Handler) *Client {
 	c.handler.H3xx = handler
 	return c
@@ -267,7 +275,7 @@ func (c *Client) SetResponseHandler3xx(handler Handler) *Client {
 
 // SetResponseHandler4xx sets the handler of the response status code 4xx.
 //
-// The default handler reads the response body as the error and returns it.
+// Default: ReadResponseBodyAsError
 func (c *Client) SetResponseHandler4xx(handler Handler) *Client {
 	c.handler.H4xx = handler
 	return c
@@ -275,7 +283,7 @@ func (c *Client) SetResponseHandler4xx(handler Handler) *Client {
 
 // SetResponseHandler5xx sets the handler of the response status code 5xx.
 //
-// The default handler reads the response body as the error and returns it.
+// Default: ReadResponseBodyAsError
 func (c *Client) SetResponseHandler5xx(handler Handler) *Client {
 	c.handler.H5xx = handler
 	return c

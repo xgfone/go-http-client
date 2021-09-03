@@ -468,21 +468,27 @@ func (r *Request) Do(c context.Context, result interface{}) *Response {
 
 // Response is a http response.
 type Response struct {
-	err  error
-	req  *http.Request
-	resp *http.Response
+	err    error
+	req    *http.Request
+	resp   *http.Response
+	closed bool
 }
 
-// Close closes the body of the response if it exists.
-func (r *Response) Close() *Response {
-	if r.resp != nil {
+func (r *Response) close() *Response {
+	if !r.closed && r.resp != nil {
 		r.resp.Body.Close()
+		r.closed = true
 	}
 	return r
 }
 
+// Close closes the body of the response if it exists.
+func (r *Response) Close() *Response { return r.close() }
+
 // Unwrap returns the inner error to support errors.Unwrap().
-func (r *Response) Unwrap() error { return r.err }
+//
+// Notice: it will close the response body.
+func (r *Response) Unwrap() error { return r.close().err }
 
 // Error implements the interface error.
 //

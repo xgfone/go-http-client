@@ -407,6 +407,54 @@ func (r *Request) SetBody(body interface{}) *Request {
 	return r
 }
 
+// SetReqBodyEncoder sets the encoder to encode the request body.
+//
+// The default encoder is derived from the client.
+func (r *Request) SetReqBodyEncoder(encode Encoder) *Request {
+	r.encoder = encode
+	return r
+}
+
+// SetResponseHandler1xx sets the handler of the response status code 1xx.
+//
+// The default response handler is derived from the client.
+func (r *Request) SetResponseHandler1xx(handler Handler) *Request {
+	r.handler.H1xx = handler
+	return r
+}
+
+// SetResponseHandler2xx sets the handler of the response status code 2xx.
+//
+// The default response handler is derived from the client.
+func (r *Request) SetResponseHandler2xx(handler Handler) *Request {
+	r.handler.H2xx = handler
+	return r
+}
+
+// SetResponseHandler3xx sets the handler of the response status code 3xx.
+//
+// The default response handler is derived from the client.
+func (r *Request) SetResponseHandler3xx(handler Handler) *Request {
+	r.handler.H3xx = handler
+	return r
+}
+
+// SetResponseHandler4xx sets the handler of the response status code 4xx.
+//
+// The default response handler is derived from the client.
+func (r *Request) SetResponseHandler4xx(handler Handler) *Request {
+	r.handler.H4xx = handler
+	return r
+}
+
+// SetResponseHandler5xx sets the handler of the response status code 5xx.
+//
+// The default response handler is derived from the client.
+func (r *Request) SetResponseHandler5xx(handler Handler) *Request {
+	r.handler.H5xx = handler
+	return r
+}
+
 // Do sends the http request, decodes the body into result,
 // and returns the response.
 func (r *Request) Do(c context.Context, result interface{}) *Response {

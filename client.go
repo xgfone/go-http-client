@@ -28,6 +28,20 @@ import (
 	"sync"
 )
 
+// Pre-define some constants.
+const (
+	HeaderAccept           = "Accept"
+	HeaderAcceptedLanguage = "Accept-Language"
+	HeaderAcceptEncoding   = "Accept-Encoding"
+	HeaderAuthorization    = "Authorization"
+	HeaderUserAgent        = "User-Agent"
+
+	MIMEMultipartForm   = "multipart/form-data"
+	MIMEApplicationForm = "application/x-www-form-urlencoded"
+	MIMEApplicationXML  = "application/xml; charset=UTF-8"
+	MIMEApplicationJSON = "application/json; charset=UTF-8"
+)
+
 var bufpool = sync.Pool{New: func() interface{} {
 	return bytes.NewBuffer(make([]byte, 0, 1024))
 }}

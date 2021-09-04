@@ -207,6 +207,11 @@ func (c *Client) Ignore404(ignore bool) *Client {
 	return c
 }
 
+// GetHTTPClient returns the inner http client.
+func (c *Client) GetHTTPClient() *http.Client {
+	return c.client
+}
+
 // SetHTTPClient resets the http client.
 func (c *Client) SetHTTPClient(client *http.Client) *Client {
 	c.client = client

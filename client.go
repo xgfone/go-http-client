@@ -207,8 +207,8 @@ func (c *Client) Ignore404(ignore bool) *Client {
 	return c
 }
 
-// SetClient resets the http client.
-func (c *Client) SetClient(client *http.Client) *Client {
+// SetHTTPClient resets the http client.
+func (c *Client) SetHTTPClient(client *http.Client) *Client {
 	c.client = client
 	return c
 }

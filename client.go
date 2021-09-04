@@ -162,6 +162,8 @@ type Client struct {
 	baseurl *url.URL
 	encoder Encoder
 	handler respHandler
+
+	ignore404 bool
 }
 
 // NewClient returns a new Client with the http client.
@@ -188,7 +190,21 @@ func (c *Client) Clone() *Client {
 		baseurl: c.baseurl,
 		encoder: c.encoder,
 		handler: c.handler,
+
+		ignore404: c.ignore404,
 	}
+}
+
+// Ignore404 sets whether to ignore the status code 404, that's, if true,
+// 404 is an error.
+//
+// Notice: if ignoring 404, the 4xx response handler won't be called
+// when the http server returns 404.
+//
+// Default: false
+func (c *Client) Ignore404(ignore bool) *Client {
+	c.ignore404 = ignore
+	return c
 }
 
 // SetClient resets the http client.
@@ -366,6 +382,8 @@ func (c *Client) Request(method, requrl string) *Request {
 
 // Request is a http request.
 type Request struct {
+	ignore404 bool
+
 	encoder Encoder
 	handler respHandler
 	reqbody io.Reader
@@ -375,6 +393,18 @@ type Request struct {
 	method  string
 	url     string
 	err     error
+}
+
+// Ignore404 sets whether to ignore the status code 404, that's, if true,
+// 404 is an error.
+//
+// Notice: if ignoring 404, the 4xx response handler won't be called
+// when the http server returns 404.
+//
+// Default: false
+func (r *Request) Ignore404(ignore bool) *Request {
+	r.ignore404 = ignore
+	return r
 }
 
 // AddQuery appends the value for the query key.
@@ -524,7 +554,7 @@ func (r *Request) Do(c context.Context, result interface{}) *Response {
 			err = r.handler.H3xx(result, resp)
 		}
 	} else if resp.StatusCode < 500 { // 4xx
-		if r.handler.H4xx != nil {
+		if (!r.ignore404 || resp.StatusCode != 404) && r.handler.H4xx != nil {
 			err = r.handler.H4xx(result, resp)
 		}
 	} else { // 5xx

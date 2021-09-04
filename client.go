@@ -374,6 +374,8 @@ func (c *Client) Request(method, requrl string) *Request {
 	}
 
 	return &Request{
+		ignore404: c.ignore404,
+
 		encoder: c.encoder,
 		handler: c.handler,
 		client:  c.client,

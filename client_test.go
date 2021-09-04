@@ -23,6 +23,15 @@ import (
 	"time"
 )
 
+func hookAddQuery(key, value string) Hook {
+	return func(r *http.Request) *http.Request {
+		query := r.URL.Query()
+		query.Add(key, value)
+		r.URL.RawQuery = query.Encode()
+		return r
+	}
+}
+
 func TestClient(t *testing.T) {
 	handler := http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -32,6 +41,9 @@ func TestClient(t *testing.T) {
 		if r.URL.Path != "/base/path/to" {
 			rw.WriteHeader(404)
 			fmt.Fprintf(rw, "not found '%s'", r.URL.Path)
+		} else if v := r.URL.Query().Get("q1"); v != "v1" {
+			rw.WriteHeader(400)
+			fmt.Fprintf(rw, "unknown query value: %s", v)
 		} else if v := r.Header.Get("Key"); v != "value" {
 			rw.WriteHeader(400)
 			fmt.Fprintf(rw, "unknown header Key: %s", v)
@@ -68,6 +80,7 @@ func TestClient(t *testing.T) {
 		Get("path/to").
 		AddHeader("Key", "value").
 		AddAccept("application/json").
+		SetHook(hookAddQuery("q1", "v1")).
 		SetBody(map[string]string{"name": "xgfone"}).
 		Do(context.Background(), &result).
 		Result()

@@ -135,6 +135,9 @@ func ReadResponseBodyAsError(dst interface{}, resp *http.Response) (err error) {
 	return
 }
 
+// Hook is used to hook the http request.
+type Hook func(*http.Request) *http.Request
+
 type (
 	// Encoder is used to encode the data by the content type to dst.
 	Encoder func(dst io.Writer, contentType string, data interface{}) error
@@ -156,6 +159,7 @@ type respHandler struct {
 
 // Client is a http client to build a request and parse the response.
 type Client struct {
+	hook    Hook
 	query   url.Values
 	header  http.Header
 	client  *http.Client
@@ -215,6 +219,12 @@ func (c *Client) GetHTTPClient() *http.Client {
 // SetHTTPClient resets the http client.
 func (c *Client) SetHTTPClient(client *http.Client) *Client {
 	c.client = client
+	return c
+}
+
+// SetHook resets the request hook.
+func (c *Client) SetHook(hook Hook) *Client {
+	c.hook = hook
 	return c
 }
 
@@ -376,6 +386,7 @@ func (c *Client) Request(method, requrl string) *Request {
 	return &Request{
 		ignore404: c.ignore404,
 
+		hook:    c.hook,
 		encoder: c.encoder,
 		handler: c.handler,
 		client:  c.client,
@@ -391,6 +402,7 @@ func (c *Client) Request(method, requrl string) *Request {
 type Request struct {
 	ignore404 bool
 
+	hook    Hook
 	encoder Encoder
 	handler respHandler
 	reqbody io.Reader
@@ -411,6 +423,12 @@ type Request struct {
 // Default: false
 func (r *Request) Ignore404(ignore bool) *Request {
 	r.ignore404 = ignore
+	return r
+}
+
+// SetHook resets the request hook.
+func (r *Request) SetHook(hook Hook) *Request {
+	r.hook = hook
 	return r
 }
 
@@ -543,6 +561,10 @@ func (r *Request) Do(c context.Context, result interface{}) *Response {
 			}
 			req.URL.RawQuery = query.Encode()
 		}
+	}
+
+	if r.hook != nil {
+		req = r.hook(req)
 	}
 
 	resp, err := r.client.Do(req)

@@ -129,6 +129,7 @@ func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
 // as the error to be returned.
 func ReadResponseBodyAsError(dst interface{}, resp *http.Response) (err error) {
 	buf := getBuffer()
+	fmt.Fprintf(buf, "statuscode=%d, respbody=", resp.StatusCode)
 	io.CopyBuffer(buf, resp.Body, make([]byte, 256))
 	err = errors.New(buf.String())
 	putBuffer(buf)

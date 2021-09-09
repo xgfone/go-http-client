@@ -680,3 +680,40 @@ func (r *Response) Body() io.ReadCloser {
 	}
 	return r.resp.Body
 }
+
+// ReadBody reads all the body data of the response as string.
+//
+// Notice: it will close the response body no matter whether it is successful.
+func (r *Response) ReadBody() (body string, err error) {
+	if r.resp != nil {
+		buf := getBuffer()
+		_, err = r.WriteTo(buf)
+		r.resp.Body.Close()
+		body = buf.String()
+		putBuffer(buf)
+	} else {
+		err = r.err
+	}
+	return
+}
+
+// WriteTo implements the interface io.WriterTo.
+//
+// Notice: it will close the response body no matter whether it is successful.
+func (r *Response) WriteTo(w io.Writer) (n int64, err error) {
+	if r.resp != nil {
+		if g, ok := w.(interface{ Grow(n int) }); ok && r.resp.ContentLength > 0 {
+			if r.resp.ContentLength < 1024 {
+				g.Grow(int(r.resp.ContentLength))
+			} else {
+				g.Grow(1024)
+			}
+		}
+
+		n, err = io.CopyBuffer(w, r.resp.Body, make([]byte, 1024))
+		r.resp.Body.Close()
+	} else {
+		err = r.err
+	}
+	return
+}

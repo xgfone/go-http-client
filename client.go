@@ -128,12 +128,18 @@ func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
 // ReadResponseBodyAsError is a response handler to read the response body
 // as the error to be returned.
 func ReadResponseBodyAsError(dst interface{}, resp *http.Response) (err error) {
+	e := Error{Code: resp.StatusCode}
+	if req := resp.Request; req != nil {
+		e.Method = req.Method
+		e.URL = req.URL.String()
+	}
+
 	buf := getBuffer()
-	fmt.Fprintf(buf, "statuscode=%d, respbody=", resp.StatusCode)
 	io.CopyBuffer(buf, resp.Body, make([]byte, 256))
-	err = errors.New(buf.String())
+	e.Data = buf.String()
 	putBuffer(buf)
-	return
+
+	return e
 }
 
 // Hook is used to hook the http request.

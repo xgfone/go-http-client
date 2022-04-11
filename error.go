@@ -51,6 +51,9 @@ func (e Error) String() string {
 	return fmt.Sprintf("method=%s, url=%s%s%s%s", e.Method, e.URL, code, data, err)
 }
 
+// StatusCode returns the status code.
+func (e Error) StatusCode() int { return e.Code }
+
 // WithCode returns the new Error with the given code.
 func (e Error) WithCode(code int) Error { e.Code = code; return e }
 

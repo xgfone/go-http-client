@@ -75,7 +75,7 @@ func TestClient(t *testing.T) {
 		Password string `json:"password"`
 	}
 
-	_, err := DefaultClient.
+	err := DefaultClient.
 		SetBaseURL("http://localhost:12345/base/").
 		Get("path/to").
 		AddHeader("Key", "value").
@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 		SetHook(hookAddQuery("q1", "v1")).
 		SetBody(map[string]string{"name": "xgfone"}).
 		Do(context.Background(), &result).
-		Result()
+		Unwrap()
 
 	if err != nil {
 		t.Error(err)

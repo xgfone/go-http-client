@@ -128,7 +128,8 @@ func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
 // ReadResponseBodyAsError is a response handler to read the response body
 // as the error to be returned.
 func ReadResponseBodyAsError(dst interface{}, resp *http.Response) (err error) {
-	e := Error{Code: resp.StatusCode}
+	err = fmt.Errorf("got status code %d", resp.StatusCode)
+	e := Error{Code: resp.StatusCode, Err: err}
 	if req := resp.Request; req != nil {
 		e.Method = req.Method
 		e.URL = req.URL.String()
@@ -543,12 +544,12 @@ func (r *Request) SetResponseHandler5xx(handler Handler) *Request {
 // and returns the response.
 func (r *Request) Do(c context.Context, result interface{}) *Response {
 	if r.err != nil {
-		return &Response{err: r.err}
+		return &Response{url: r.url, mhd: r.method, err: r.err}
 	}
 
 	req, err := NewRequestWithContext(c, r.method, r.url, r.reqbody)
 	if err != nil {
-		return &Response{err: err}
+		return &Response{url: r.url, mhd: r.method, err: err}
 	}
 
 	if len(req.Header) == 0 {
@@ -576,7 +577,7 @@ func (r *Request) Do(c context.Context, result interface{}) *Response {
 
 	resp, err := r.client.Do(req)
 	if err != nil {
-		return &Response{err: err, req: req, resp: resp}
+		return &Response{url: r.url, mhd: r.method, err: err, req: req, resp: resp}
 	} else if resp.StatusCode < 200 { // 1xx
 		if r.handler.H1xx != nil {
 			err = r.handler.H1xx(result, resp)
@@ -599,12 +600,14 @@ func (r *Request) Do(c context.Context, result interface{}) *Response {
 		}
 	}
 
-	return &Response{err: err, req: req, resp: resp}
+	return &Response{url: r.url, mhd: r.method, err: err, req: req, resp: resp}
 }
 
 // Response is a http response.
 type Response struct {
 	err    error
+	url    string
+	mhd    string
 	req    *http.Request
 	resp   *http.Response
 	closed bool
@@ -618,13 +621,28 @@ func (r *Response) close() *Response {
 	return r
 }
 
+func (r *Response) getError() (err error) {
+	switch r.err.(type) {
+	case nil:
+	case Error:
+		err = r.err
+
+	default:
+		if r.resp == nil {
+			err = NewError(0, r.mhd, r.url, r.err)
+		} else {
+			err = NewError(r.resp.StatusCode, r.mhd, r.url, r.err)
+		}
+	}
+
+	return
+}
+
 // Close closes the body of the response if it exists.
 func (r *Response) Close() *Response { return r.close() }
 
-// Unwrap returns the inner error to support errors.Unwrap().
-//
-// Notice: it will close the response body.
-func (r *Response) Unwrap() error { return r.close().err }
+// Unwrap is the same as Result, but also closes the response body.
+func (r *Response) Unwrap() error { return r.close().getError() }
 
 // Error implements the interface error.
 //
@@ -636,8 +654,8 @@ func (r *Response) Error() string {
 	return r.err.Error()
 }
 
-// Result returns the response result.
-func (r *Response) Result() (*http.Response, error) { return r.resp, r.err }
+// Result returns the result error, which is an Error if not nil.
+func (r *Response) Result() error { return r.getError() }
 
 // Request returns http.Request.
 func (r *Response) Request() *http.Request { return r.req }

@@ -54,8 +54,7 @@ func main() {
 
 		// Use the decoder referring to the response header "Content-Type" to decode the body into result.
 		Do(context.Background(), &result).
-		Close(). // Ensure that the response body is closed.
-		Unwrap() // Return the inner error.
+		Unwrap() // Close the response body and return the inner error.
 
 	if err != nil {
 		fmt.Println(err)

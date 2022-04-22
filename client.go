@@ -158,6 +158,7 @@ type (
 )
 
 type respHandler struct {
+	All  Handler
 	H1xx Handler
 	H2xx Handler
 	H3xx Handler
@@ -299,6 +300,15 @@ func (c *Client) AddAccept(contentType string) *Client {
 // The default encoder is EncodeData.
 func (c *Client) SetReqBodyEncoder(encode Encoder) *Client {
 	c.encoder = encode
+	return c
+}
+
+// SetResponseHandler sets the handler of the response, which hides
+// all the XXX handlers if set, but you can set it to nil to cancel it.
+//
+// Default: nil
+func (c *Client) SetResponseHandler(handler Handler) *Client {
+	c.handler.All = handler
 	return c
 }
 
@@ -500,6 +510,15 @@ func (r *Request) SetReqBodyEncoder(encode Encoder) *Request {
 	return r
 }
 
+// SetResponseHandler sets the handler of the response, which hides
+// all the XXX handlers if set, but you can set it to nil to cancel it.
+//
+// The default response handler is derived from the client.
+func (r *Request) SetResponseHandler(handler Handler) *Request {
+	r.handler.All = handler
+	return r
+}
+
 // SetResponseHandler1xx sets the handler of the response status code 1xx.
 //
 // The default response handler is derived from the client.
@@ -578,6 +597,8 @@ func (r *Request) Do(c context.Context, result interface{}) *Response {
 	resp, err := r.client.Do(req)
 	if err != nil {
 		return &Response{url: r.url, mhd: r.method, err: err, req: req, resp: resp}
+	} else if r.handler.All != nil {
+		err = r.handler.All(result, resp)
 	} else if resp.StatusCode < 200 { // 1xx
 		if r.handler.H1xx != nil {
 			err = r.handler.H1xx(result, resp)

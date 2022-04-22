@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-func hookAddQuery(key, value string) Hook {
+func hookAddQuery(key, value string) HookFunc {
 	return func(r *http.Request) *http.Request {
 		query := r.URL.Query()
 		query.Add(key, value)

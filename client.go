@@ -143,8 +143,27 @@ func ReadResponseBodyAsError(dst interface{}, resp *http.Response) (err error) {
 	return e
 }
 
-// Hook is used to hook the http request.
-type Hook func(*http.Request) *http.Request
+// Hook is a hook to wrap and modify the http request.
+type Hook interface {
+	Request(*http.Request) *http.Request
+}
+
+// Hooks is a set of hooks.
+type Hooks []Hook
+
+// Request implements the interface Hook.
+func (hs Hooks) Request(r *http.Request) *http.Request {
+	for _, hook := range hs {
+		r = hook.Request(r)
+	}
+	return r
+}
+
+// HookFunc is a hook function.
+type HookFunc func(*http.Request) *http.Request
+
+// Request implements the interface Hook.
+func (f HookFunc) Request(r *http.Request) *http.Request { return f(r) }
 
 type (
 	// Encoder is used to encode the data by the content type to dst.
@@ -591,7 +610,7 @@ func (r *Request) Do(c context.Context, result interface{}) *Response {
 	}
 
 	if r.hook != nil {
-		req = r.hook(req)
+		req = r.hook.Request(req)
 	}
 
 	resp, err := r.client.Do(req)

@@ -256,6 +256,24 @@ func (c *Client) SetHook(hook Hook) *Client {
 	return c
 }
 
+// AddHook appends the request hook.
+func (c *Client) AddHook(hook Hook) *Client {
+	if hook == nil {
+		panic("Client.AddHook: the hook must not be nil")
+	}
+
+	switch hooks := c.hook.(type) {
+	case nil:
+		c.hook = hook
+	case Hooks:
+		c.hook = append(hooks, hook)
+	default:
+		c.hook = Hooks{c.hook, hook}
+	}
+
+	return c
+}
+
 // SetBaseURL sets the default base url.
 //
 // If baseurl is empty, it will clear the base url.
@@ -420,10 +438,15 @@ func (c *Client) Request(method, requrl string) *Request {
 		}
 	}
 
+	hook := c.hook
+	if hooks, ok := c.hook.(Hooks); ok {
+		hook = append(Hooks{}, hooks...)
+	}
+
 	return &Request{
 		ignore404: c.ignore404,
 
-		hook:    c.hook,
+		hook:    hook,
 		encoder: c.encoder,
 		handler: c.handler,
 		client:  c.client,
@@ -466,6 +489,24 @@ func (r *Request) Ignore404(ignore bool) *Request {
 // SetHook resets the request hook.
 func (r *Request) SetHook(hook Hook) *Request {
 	r.hook = hook
+	return r
+}
+
+// AddHook appends the request hook.
+func (r *Request) AddHook(hook Hook) *Request {
+	if hook == nil {
+		panic("Request.AddHook: the hook must not be nil")
+	}
+
+	switch hooks := r.hook.(type) {
+	case nil:
+		r.hook = hook
+	case Hooks:
+		r.hook = append(hooks, hook)
+	default:
+		r.hook = Hooks{r.hook, hook}
+	}
+
 	return r
 }
 

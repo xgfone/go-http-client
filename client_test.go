@@ -116,3 +116,37 @@ func TestClient2(t *testing.T) {
 		t.Error(result)
 	}
 }
+
+type testHook struct{ Name string }
+
+func newTestHook(name string) Hook                       { return testHook{name} }
+func (h testHook) Request(r *http.Request) *http.Request { return r }
+
+func TestAddHook(t *testing.T) {
+	client := NewClient(nil)
+	client.AddHook(newTestHook("hook1"))
+	client.AddHook(newTestHook("hook2"))
+
+	req := client.Get("http://127.0.0.1")
+	req.AddHook(newTestHook("hook3"))
+
+	if hooks, ok := req.hook.(Hooks); !ok {
+		t.Errorf("expect type Hooks, but got '%T'", req.hook)
+	} else if len(hooks) != 3 {
+		t.Errorf("expect 3 hooks, but got %d", len(hooks))
+	} else {
+		for i, hook := range hooks {
+			switch name := hook.(testHook).Name; name {
+			case "hook1", "hook2", "hook3":
+			default:
+				t.Errorf("%d: unexpected hook named '%s'", i, name)
+			}
+		}
+
+		hooks[0] = newTestHook("hook4")
+	}
+
+	if name := client.hook.(Hooks)[0].(testHook).Name; name != "hook1" {
+		t.Errorf("expect hook named '%s', but got '%s'", "hook1", name)
+	}
+}

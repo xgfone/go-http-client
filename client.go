@@ -288,6 +288,22 @@ func (c *Client) SetBaseURL(baseurl string) *Client {
 	return c
 }
 
+// AddQueries adds the request queries.
+func (c *Client) AddQueries(queries url.Values) *Client {
+	for key, values := range queries {
+		c.query[key] = values
+	}
+	return c
+}
+
+// AddQueryMap adds the request queries as a map type.
+func (c *Client) AddQueryMap(queries map[string]string) *Client {
+	for key, value := range queries {
+		c.query.Add(key, value)
+	}
+	return c
+}
+
 // AddQuery appends the value for the query key.
 func (c *Client) AddQuery(key, value string) *Client {
 	c.query.Add(key, value)
@@ -297,6 +313,22 @@ func (c *Client) AddQuery(key, value string) *Client {
 // SetQuery sets the query key to the value.
 func (c *Client) SetQuery(key, value string) *Client {
 	c.query.Set(key, value)
+	return c
+}
+
+// AddHeaders adds the request headers.
+func (c *Client) AddHeaders(headers http.Header) *Client {
+	for key, values := range headers {
+		c.header[key] = values
+	}
+	return c
+}
+
+// AddHeaderMap adds the request headers as a map type.
+func (c *Client) AddHeaderMap(headers map[string]string) *Client {
+	for key, value := range headers {
+		c.header.Add(key, value)
+	}
 	return c
 }
 
@@ -510,6 +542,22 @@ func (r *Request) AddHook(hook Hook) *Request {
 	return r
 }
 
+// AddQueries adds the request queries.
+func (r *Request) AddQueries(queries url.Values) *Request {
+	for key, values := range queries {
+		r.query[key] = values
+	}
+	return r
+}
+
+// AddQueryMap adds the request queries as a map type.
+func (r *Request) AddQueryMap(queries map[string]string) *Request {
+	for key, value := range queries {
+		r.query.Add(key, value)
+	}
+	return r
+}
+
 // AddQuery appends the value for the query key.
 func (r *Request) AddQuery(key, value string) *Request {
 	r.query.Add(key, value)
@@ -525,6 +573,22 @@ func (r *Request) SetQuery(key, value string) *Request {
 // AddHeader adds the request header as "key: value".
 func (r *Request) AddHeader(key, value string) *Request {
 	r.header.Add(key, value)
+	return r
+}
+
+// AddHeaders adds the request headers.
+func (r *Request) AddHeaders(headers http.Header) *Request {
+	for key, values := range headers {
+		r.header[key] = values
+	}
+	return r
+}
+
+// AddHeaderMap adds the request headers as a map type.
+func (r *Request) AddHeaderMap(headers map[string]string) *Request {
+	for key, value := range headers {
+		r.header.Add(key, value)
+	}
 	return r
 }
 
@@ -724,6 +788,11 @@ func (r *Response) Close() *Response { return r.close() }
 
 // Unwrap is the same as Result, but also closes the response body.
 func (r *Response) Unwrap() error { return r.close().getError() }
+
+// UnwrapWithStatusCode is the same as Unwrap, but also returns the status code.
+func (r *Response) UnwrapWithStatusCode() (int, error) {
+	return r.StatusCode(), r.Unwrap()
+}
 
 // Error implements the interface error.
 //

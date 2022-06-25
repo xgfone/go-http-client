@@ -470,15 +470,10 @@ func (c *Client) Request(method, requrl string) *Request {
 		}
 	}
 
-	hook := c.hook
-	if hooks, ok := c.hook.(Hooks); ok {
-		hook = append(Hooks{}, hooks...)
-	}
-
 	return &Request{
 		ignore404: c.ignore404,
 
-		hook:    hook,
+		hook:    c.hook,
 		encoder: c.encoder,
 		handler: c.handler,
 		client:  c.client,
@@ -495,6 +490,7 @@ type Request struct {
 	ignore404 bool
 
 	hook    Hook
+	hookset bool
 	encoder Encoder
 	handler respHandler
 	reqbody io.Reader
@@ -520,6 +516,7 @@ func (r *Request) Ignore404(ignore bool) *Request {
 
 // SetHook resets the request hook.
 func (r *Request) SetHook(hook Hook) *Request {
+	r.hookset = true
 	r.hook = hook
 	return r
 }
@@ -534,11 +531,20 @@ func (r *Request) AddHook(hook Hook) *Request {
 	case nil:
 		r.hook = hook
 	case Hooks:
-		r.hook = append(hooks, hook)
+		if r.hookset {
+			r.hook = append(hooks, hook)
+		} else {
+			_len := len(hooks)
+			_hooks := make(Hooks, _len+1)
+			copy(_hooks, hooks)
+			_hooks[_len] = hook
+			r.hook = _hooks
+		}
 	default:
 		r.hook = Hooks{r.hook, hook}
 	}
 
+	r.hookset = true
 	return r
 }
 

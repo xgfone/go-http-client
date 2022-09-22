@@ -15,6 +15,7 @@
 package httpclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -150,3 +151,36 @@ func TestAddHook(t *testing.T) {
 		t.Errorf("expect hook named '%s', but got '%s'", "hook1", name)
 	}
 }
+
+func BenchmarkCloseBody(b *testing.B) {
+	b.RunParallel(func(p *testing.PB) {
+		buf := closedBuffer{bytes.NewBuffer(nil)}
+		for p.Next() {
+			CloseBody(buf)
+		}
+	})
+}
+
+func TestCloseBody(t *testing.T) {
+	if err := CloseBody(nil); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	buf := closedBuffer{bytes.NewBuffer(nil)}
+	if err := CloseBody(buf); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s := buf.String(); s != "" {
+		t.Errorf("unexpected string '%s'", s)
+	}
+
+	buf.WriteString("abc")
+	if err := CloseBody(buf); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s := buf.String(); s != "" {
+		t.Errorf("unexpected string '%s'", s)
+	}
+}
+
+type closedBuffer struct{ *bytes.Buffer }
+
+func (b closedBuffer) Close() error { return nil }

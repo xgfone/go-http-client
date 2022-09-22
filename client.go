@@ -49,6 +49,31 @@ var bufpool = sync.Pool{New: func() interface{} {
 func getBuffer() *bytes.Buffer    { return bufpool.Get().(*bytes.Buffer) }
 func putBuffer(buf *bytes.Buffer) { buf.Reset(); bufpool.Put(buf) }
 
+type bytesT struct{ Data []byte }
+
+var bytespool = sync.Pool{New: func() interface{} {
+	return &bytesT{Data: make([]byte, 1024)}
+}}
+
+func getBytes() *bytesT  { return bytespool.Get().(*bytesT) }
+func putBytes(b *bytesT) { bytespool.Put(b) }
+
+type discarder struct{}
+
+func (d discarder) Write(p []byte) (int, error) { return len(p), nil }
+
+// CloseBody closes the io reader, which will discard all the data from r
+// before closing it, but does nothing if r is nil
+func CloseBody(r io.ReadCloser) (err error) {
+	if r != nil {
+		buf := getBytes()
+		io.CopyBuffer(discarder{}, r, buf.Data[:])
+		err = r.Close()
+		putBytes(buf)
+	}
+	return
+}
+
 func cloneQuery(query url.Values) url.Values {
 	return url.Values(cloneHeader(http.Header(query)))
 }
@@ -766,7 +791,7 @@ type Response struct {
 
 func (r *Response) close() *Response {
 	if !r.closed && r.resp != nil {
-		r.resp.Body.Close()
+		CloseBody(r.resp.Body)
 		r.closed = true
 	}
 	return r

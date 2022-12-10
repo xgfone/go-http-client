@@ -653,12 +653,11 @@ func (r *Request) SetBody(body interface{}) *Request {
 		var buf *bytes.Buffer
 		if r.reqbody == nil {
 			buf = getBuffer()
+			r.reqbody = buf
 		} else {
 			buf = r.reqbody.(*bytes.Buffer)
 			buf.Reset()
 		}
-
-		r.reqbody = buf
 		r.err = r.encoder(buf, GetContentType(r.header), body)
 	}
 	return r

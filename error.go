@@ -61,4 +61,4 @@ func (e Error) WithCode(code int) Error { e.Code = code; return e }
 func (e Error) WithData(data string) Error { e.Data = data; return e }
 
 // WithErr returns the new Error with the given error.
-func (e Error) WithErr(err Error) Error { e.Err = err; return e }
+func (e Error) WithErr(err error) Error { e.Err = err; return e }

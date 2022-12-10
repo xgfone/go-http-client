@@ -650,11 +650,25 @@ func (r *Request) AddAccept(contentType string) *Request {
 // SetBody sets the body of the request.
 func (r *Request) SetBody(body interface{}) *Request {
 	if r.err == nil && body != nil {
-		buf := getBuffer()
+		var buf *bytes.Buffer
+		if r.reqbody == nil {
+			buf = getBuffer()
+		} else {
+			buf = r.reqbody.(*bytes.Buffer)
+			buf.Reset()
+		}
+
 		r.reqbody = buf
 		r.err = r.encoder(buf, GetContentType(r.header), body)
 	}
 	return r
+}
+
+func (r *Request) cleanBody() {
+	if r.reqbody != nil {
+		putBuffer(r.reqbody.(*bytes.Buffer))
+		r.reqbody = nil
+	}
 }
 
 // SetReqBodyEncoder sets the encoder to encode the request body.
@@ -718,6 +732,8 @@ func (r *Request) SetResponseHandler5xx(handler Handler) *Request {
 // and returns the response.
 func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 	resp = &Response{url: r.url, mhd: r.method, err: r.err}
+	defer r.cleanBody()
+
 	if resp.err != nil {
 		return
 	}

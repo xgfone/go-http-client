@@ -26,8 +26,8 @@ type Error struct {
 }
 
 // NewError returns a new Error.
-func NewError(code int, method, url string, err error) Error {
-	return Error{Code: code, Method: method, URL: url, Err: err}
+func NewError(method, url string, err error) Error {
+	return Error{Method: method, URL: url, Err: err}
 }
 
 func (e Error) Unwrap() error { return e.Err }

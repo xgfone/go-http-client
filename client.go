@@ -1,4 +1,4 @@
-// Copyright 2021 xgfone
+// Copyright 2021~2022 xgfone
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,12 +34,15 @@ const (
 	HeaderAcceptedLanguage = "Accept-Language"
 	HeaderAcceptEncoding   = "Accept-Encoding"
 	HeaderAuthorization    = "Authorization"
+	HeaderContentType      = "Content-Type"
 	HeaderUserAgent        = "User-Agent"
 
-	MIMEMultipartForm   = "multipart/form-data"
-	MIMEApplicationForm = "application/x-www-form-urlencoded"
-	MIMEApplicationXML  = "application/xml; charset=UTF-8"
-	MIMEApplicationJSON = "application/json; charset=UTF-8"
+	MIMEMultipartForm              = "multipart/form-data"
+	MIMEApplicationForm            = "application/x-www-form-urlencoded"
+	MIMEApplicationXML             = "application/xml"
+	MIMEApplicationJSON            = "application/json"
+	MIMEApplicationXMLCharsetUTF8  = "application/xml; charset=UTF-8"
+	MIMEApplicationJSONCharsetUTF8 = "application/json; charset=UTF-8"
 )
 
 var bufpool = sync.Pool{New: func() interface{} {
@@ -81,7 +84,7 @@ func cloneQuery(query url.Values) url.Values {
 // GetContentType returns the Content-Type from the header,
 // which will remove the charset part.
 func GetContentType(header http.Header) string {
-	ct := header.Get("Content-Type")
+	ct := header.Get(HeaderContentType)
 	if index := strings.IndexAny(ct, ";"); index > 0 {
 		ct = strings.TrimSpace(ct[:index])
 	}
@@ -113,9 +116,9 @@ func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 		switch contentType {
 		case "":
 			err = errors.New("no request header Content-Type")
-		case "application/xml":
+		case MIMEApplicationXML:
 			err = xml.NewEncoder(w).Encode(data)
-		case "application/json":
+		case MIMEApplicationJSON:
 			err = json.NewEncoder(w).Encode(data)
 		default:
 			err = fmt.Errorf("unsupported request Content-Type '%s'", contentType)
@@ -374,19 +377,19 @@ func (c *Client) SetHeader(key, value string) *Client {
 //
 // The default Content-Type is "application/json; charset=UTF-8".
 func (c *Client) SetContentType(ct string) *Client {
-	return c.SetHeader("Content-Type", ct)
+	return c.SetHeader(HeaderContentType, ct)
 }
 
 // SetAccepts resets the accepted types of the response body to accepts.
 func (c *Client) SetAccepts(accepts ...string) *Client {
-	c.header["Accept"] = accepts
+	c.header[HeaderAccept] = accepts
 	return c
 }
 
 // AddAccept adds the accepted types of the response body, which is equal to
 // AddHeader("Accept", contentType).
 func (c *Client) AddAccept(contentType string) *Client {
-	return c.AddHeader("Accept", contentType)
+	return c.AddHeader(HeaderAccept, contentType)
 }
 
 // SetReqBodyEncoder sets the encoder to encode the request body.
@@ -632,19 +635,19 @@ func (r *Request) SetHeader(key, value string) *Request {
 // SetContentType sets the default Content-Type, which is equal to
 // SetHeader("Content-Type", ct).
 func (r *Request) SetContentType(ct string) *Request {
-	return r.SetHeader("Content-Type", ct)
+	return r.SetHeader(HeaderContentType, ct)
 }
 
 // SetAccepts resets the accepted types of the response body to accepts.
 func (r *Request) SetAccepts(accepts ...string) *Request {
-	r.header["Accept"] = accepts
+	r.header[HeaderAccept] = accepts
 	return r
 }
 
 // AddAccept adds the accepted types of the response body, which is equal to
 // AddHeader("Accept", contentType).
 func (r *Request) AddAccept(contentType string) *Request {
-	return r.AddHeader("Accept", contentType)
+	return r.AddHeader(HeaderAccept, contentType)
 }
 
 // SetBody sets the body of the request.

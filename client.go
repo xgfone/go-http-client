@@ -99,7 +99,6 @@ func GetContentType(header http.Header) string {
 //   - string
 //   - io.Reader
 //   - io.WriterTo
-//
 func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 	switch v := data.(type) {
 	case *bytes.Buffer:
@@ -132,17 +131,15 @@ func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 // If ct is equal to "application/xml" or "application/json", it will use
 // the xml or json decoder to decode the data. Or returns an error.
 func DecodeFromReader(dst interface{}, ct string, r io.Reader) (err error) {
-	if dst != nil {
-		switch ct {
-		case "":
-			err = errors.New("no response header Content-Type")
-		case "application/xml":
-			err = xml.NewDecoder(r).Decode(dst)
-		case "application/json":
-			err = json.NewDecoder(r).Decode(dst)
-		default:
-			err = fmt.Errorf("unsupported response Content-Type '%s'", ct)
-		}
+	switch ct {
+	case "":
+		err = errors.New("no response header Content-Type")
+	case MIMEApplicationXML:
+		err = xml.NewDecoder(r).Decode(dst)
+	case MIMEApplicationJSON:
+		err = json.NewDecoder(r).Decode(dst)
+	default:
+		err = fmt.Errorf("unsupported response Content-Type '%s'", ct)
 	}
 	return
 }
@@ -719,67 +716,66 @@ func (r *Request) SetResponseHandler5xx(handler Handler) *Request {
 
 // Do sends the http request, decodes the body into result,
 // and returns the response.
-func (r *Request) Do(c context.Context, result interface{}) *Response {
-	if r.err != nil {
-		return &Response{url: r.url, mhd: r.method, err: r.err}
+func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
+	resp = &Response{url: r.url, mhd: r.method, err: r.err}
+	if resp.err != nil {
+		return
 	}
 
-	req, err := NewRequestWithContext(c, r.method, r.url, r.reqbody)
-	if err != nil {
-		return &Response{url: r.url, mhd: r.method, err: err}
+	resp.req, resp.err = NewRequestWithContext(c, r.method, r.url, r.reqbody)
+	if resp.err != nil {
+		return
 	}
 
-	if len(req.Header) == 0 {
-		req.Header = r.header
+	if len(resp.req.Header) == 0 {
+		resp.req.Header = r.header
 	} else if len(r.header) > 0 {
 		for k, vs := range r.header {
-			req.Header[k] = vs
+			resp.req.Header[k] = vs
 		}
 	}
 
 	if len(r.query) > 0 {
-		if query := req.URL.Query(); len(query) == 0 {
-			req.URL.RawQuery = r.query.Encode()
+		if query := resp.req.URL.Query(); len(query) == 0 {
+			resp.req.URL.RawQuery = r.query.Encode()
 		} else {
 			for k, vs := range r.query {
 				query[k] = vs
 			}
-			req.URL.RawQuery = query.Encode()
+			resp.req.URL.RawQuery = query.Encode()
 		}
 	}
 
 	if r.hook != nil {
-		req = r.hook.Request(req)
+		resp.req = r.hook.Request(resp.req)
 	}
 
-	resp, err := r.client.Do(req)
-	if err != nil {
-		return &Response{url: r.url, mhd: r.method, err: err, req: req, resp: resp}
-	} else if r.handler.All != nil {
-		err = r.handler.All(result, resp)
-	} else if resp.StatusCode < 200 { // 1xx
-		if r.handler.H1xx != nil {
-			err = r.handler.H1xx(result, resp)
-		}
-	} else if resp.StatusCode < 300 { // 2xx
-		if r.handler.H2xx != nil {
-			err = r.handler.H2xx(result, resp)
-		}
-	} else if resp.StatusCode < 400 { // 3xx
-		if r.handler.H3xx != nil {
-			err = r.handler.H3xx(result, resp)
-		}
-	} else if resp.StatusCode < 500 { // 4xx
-		if (!r.ignore404 || resp.StatusCode != 404) && r.handler.H4xx != nil {
-			err = r.handler.H4xx(result, resp)
-		}
-	} else { // 5xx
-		if r.handler.H5xx != nil {
-			err = r.handler.H5xx(result, resp)
+	resp.resp, resp.err = r.client.Do(resp.req)
+	if resp.err == nil && result != nil {
+		status := resp.resp.StatusCode
+		switch {
+		case r.handler.All != nil:
+			resp.err = r.handler.All(result, resp.resp)
+
+		case r.handler.H1xx != nil && status < 200:
+			resp.err = r.handler.H1xx(result, resp.resp)
+
+		case r.handler.H2xx != nil && status < 300:
+			resp.err = r.handler.H2xx(result, resp.resp)
+
+		case r.handler.H3xx != nil && status < 400:
+			resp.err = r.handler.H3xx(result, resp.resp)
+
+		case r.handler.H4xx != nil && status < 500 &&
+			(!r.ignore404 || resp.resp.StatusCode != 404):
+			resp.err = r.handler.H4xx(result, resp.resp)
+
+		case r.handler.H5xx != nil:
+			resp.err = r.handler.H5xx(result, resp.resp)
 		}
 	}
 
-	return &Response{url: r.url, mhd: r.method, err: err, req: req, resp: resp}
+	return
 }
 
 // Response is a http response.

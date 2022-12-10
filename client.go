@@ -816,15 +816,9 @@ func (r *Response) getError() (err error) {
 	case nil:
 	case Error:
 		err = r.err
-
 	default:
-		if r.resp == nil {
-			err = NewError(0, r.mhd, r.url).WithErr(r.err)
-		} else {
-			err = NewError(r.resp.StatusCode, r.mhd, r.url).WithErr(r.err)
-		}
+		err = r.ToError(r.err)
 	}
-
 	return
 }
 
@@ -837,6 +831,14 @@ func (r *Response) Unwrap() error { return r.close().getError() }
 // UnwrapWithStatusCode is the same as Unwrap, but also returns the status code.
 func (r *Response) UnwrapWithStatusCode() (int, error) {
 	return r.StatusCode(), r.Unwrap()
+}
+
+// ToError returns an Error with the given error.
+func (r *Response) ToError(err error) Error {
+	if r.resp == nil {
+		return NewError(0, r.mhd, r.url, err)
+	}
+	return NewError(r.resp.StatusCode, r.mhd, r.url, err)
 }
 
 // Error implements the interface error.

@@ -819,9 +819,9 @@ func (r *Response) getError() (err error) {
 
 	default:
 		if r.resp == nil {
-			err = NewError(r.mhd, r.url, r.err)
+			err = NewError(0, r.mhd, r.url).WithErr(r.err)
 		} else {
-			err = NewError(r.mhd, r.url, r.err).WithCode(r.resp.StatusCode)
+			err = NewError(r.resp.StatusCode, r.mhd, r.url).WithErr(r.err)
 		}
 	}
 

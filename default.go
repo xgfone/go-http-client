@@ -52,23 +52,23 @@ func GetJSON(url string, respBody interface{}) error {
 }
 
 // PutJSON is a convenient function to send the JSON data with the method PUT.
-func PutJSON(url string, reqBody interface{}) error {
-	return PutJSONContext(context.Background(), url, reqBody)
+func PutJSON(url string, respBody interface{}, reqBody interface{}) error {
+	return PutJSONContext(context.Background(), url, respBody, reqBody)
 }
 
 // PostJSON is a convenient function to put the JSON data with the method POST.
-func PostJSON(url string, reqBody interface{}) error {
-	return PostJSONContext(context.Background(), url, reqBody)
+func PostJSON(url string, respBody interface{}, reqBody interface{}) error {
+	return PostJSONContext(context.Background(), url, respBody, reqBody)
 }
 
 // PatchJSON is a convenient function to put the JSON data with the method PATCH.
-func PatchJSON(url string, reqBody interface{}) error {
-	return PatchJSONContext(context.Background(), url, reqBody)
+func PatchJSON(url string, respBody interface{}, reqBody interface{}) error {
+	return PatchJSONContext(context.Background(), url, respBody, reqBody)
 }
 
 // DeleteJSON is a convenient function to the JSON data to with the method DELETE.
-func DeleteJSON(url string, reqBody interface{}) error {
-	return DeleteJSONContext(context.Background(), url, reqBody)
+func DeleteJSON(url string, respBody interface{}, reqBody interface{}) error {
+	return DeleteJSONContext(context.Background(), url, respBody, reqBody)
 }
 
 // GetJSONContext is a convenient function to get the JSON data from the remote server.
@@ -82,31 +82,30 @@ func GetJSONContext(c context.Context, url string, respBody interface{}) error {
 }
 
 // PutJSONContext is a convenient function to send the JSON data with the method PUT.
-func PutJSONContext(c context.Context, url string, reqBody interface{}) error {
-	return requestJSON(c, Put(url), reqBody)
+func PutJSONContext(c context.Context, url string, respBody interface{}, reqBody interface{}) error {
+	return requestJSON(c, Put(url), respBody, reqBody)
 }
 
 // PostJSONContext is a convenient function to put the JSON data with the method POST.
-func PostJSONContext(c context.Context, url string, reqBody interface{}) error {
-	return requestJSON(c, Post(url), reqBody)
+func PostJSONContext(c context.Context, url string, respBody interface{}, reqBody interface{}) error {
+	return requestJSON(c, Post(url), respBody, reqBody)
 }
 
 // PatchJSONContext is a convenient function to put the JSON data with the method PATCH.
-func PatchJSONContext(c context.Context, url string, reqBody interface{}) error {
-	return requestJSON(c, Patch(url), reqBody)
+func PatchJSONContext(c context.Context, url string, respBody interface{}, reqBody interface{}) error {
+	return requestJSON(c, Patch(url), respBody, reqBody)
 }
 
 // DeleteJSONContext is a convenient function to the JSON data to with the method DELETE.
-func DeleteJSONContext(c context.Context, url string, reqBody interface{}) error {
-	return requestJSON(c, Delete(url), reqBody)
+func DeleteJSONContext(c context.Context, url string, respBody interface{}, reqBody interface{}) error {
+	return requestJSON(c, Delete(url), respBody, reqBody)
 }
 
-func requestJSON(c context.Context, req *Request, reqBody interface{}) error {
+func requestJSON(c context.Context, req *Request, respBody interface{}, reqBody interface{}) error {
 	return req.
 		SetContentType("application/json; charset=UTF-8").
 		SetAccepts("application/json").
 		SetBody(reqBody).
-		Do(c, nil).
-		Close().
+		Do(c, respBody).
 		Unwrap()
 }

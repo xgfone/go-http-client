@@ -53,7 +53,7 @@ func TestClient(t *testing.T) {
 			fmt.Fprintf(rw, "unknown header Accept: %s", v)
 		} else if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			rw.WriteHeader(400)
-			fmt.Fprintf(rw, err.Error())
+			fmt.Fprintf(rw, "%s", err.Error())
 		} else if req.Name != "xgfone" {
 			rw.WriteHeader(400)
 			fmt.Fprintf(rw, "unknown request name '%s'", req.Name)

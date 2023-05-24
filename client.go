@@ -147,6 +147,9 @@ func DecodeFromReader(dst interface{}, ct string, r io.Reader) (err error) {
 // DecodeResponseBody is a response handler to decode the response body
 // into dst.
 func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
+	if dst == nil {
+		return
+	}
 	return DecodeFromReader(dst, GetContentType(resp.Header), resp.Body)
 }
 
@@ -766,7 +769,7 @@ func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 	}
 
 	resp.resp, resp.err = r.client.Do(resp.req)
-	if resp.err == nil && result != nil {
+	if resp.err == nil {
 		status := resp.resp.StatusCode
 		switch {
 		case r.handler.All != nil:

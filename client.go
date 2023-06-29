@@ -147,7 +147,7 @@ func DecodeFromReader(dst interface{}, ct string, r io.Reader) (err error) {
 // DecodeResponseBody is a response handler to decode the response body
 // into dst.
 func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
-	if dst == nil {
+	if dst == nil || resp.StatusCode == 204 {
 		return
 	}
 	return DecodeFromReader(dst, GetContentType(resp.Header), resp.Body)
@@ -212,6 +212,8 @@ type respHandler struct {
 	H3xx Handler
 	H4xx Handler
 	H5xx Handler
+
+	Default Handler
 }
 
 // Client is a http client to build a request and parse the response.
@@ -455,6 +457,14 @@ func (c *Client) SetResponseHandler4xx(handler Handler) *Client {
 // Default: ReadResponseBodyAsError
 func (c *Client) SetResponseHandler5xx(handler Handler) *Client {
 	c.handler.H5xx = handler
+	return c
+}
+
+// SetResponseHandlerDefault sets the default handler of the response.
+//
+// Default: nil
+func (c *Client) SetResponseHandlerDefault(handler Handler) *Client {
+	c.handler.Default = handler
 	return c
 }
 
@@ -747,6 +757,14 @@ func (r *Request) SetResponseHandler5xx(handler Handler) *Request {
 	return r
 }
 
+// SetResponseHandlerDefault sets the default handler of the response.
+//
+// Default: nil
+func (r *Request) SetResponseHandlerDefault(handler Handler) *Request {
+	r.handler.Default = handler
+	return r
+}
+
 // Do sends the http request, decodes the body into result,
 // and returns the response.
 func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
@@ -807,6 +825,9 @@ func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 
 		case r.handler.H5xx != nil:
 			resp.err = r.handler.H5xx(result, resp.resp)
+
+		case r.handler.Default != nil:
+			resp.err = r.handler.Default(result, resp.resp)
 		}
 	}
 

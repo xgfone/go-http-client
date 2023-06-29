@@ -103,8 +103,8 @@ func DeleteJSONContext(c context.Context, url string, respBody interface{}, reqB
 
 func requestJSON(c context.Context, req *Request, respBody interface{}, reqBody interface{}) error {
 	return req.
-		SetContentType("application/json; charset=UTF-8").
-		SetAccepts("application/json").
+		SetContentType(MIMEApplicationJSONCharsetUTF8).
+		SetAccepts(MIMEApplicationJSON).
 		SetBody(reqBody).
 		Do(c, respBody).
 		Unwrap()

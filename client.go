@@ -155,20 +155,21 @@ func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
 
 // ReadResponseBodyAsError is a response handler to read the response body
 // as the error to be returned.
-func ReadResponseBodyAsError(dst interface{}, resp *http.Response) (err error) {
-	err = fmt.Errorf("got status code %d", resp.StatusCode)
-	e := Error{Code: resp.StatusCode, Err: err}
+func ReadResponseBodyAsError(dst interface{}, resp *http.Response) error {
+	err := Error{Code: resp.StatusCode}
+	err.Err = fmt.Errorf("got status code %d", resp.StatusCode)
+
 	if req := resp.Request; req != nil {
-		e.Method = req.Method
-		e.URL = req.URL.String()
+		err.Method = req.Method
+		err.URL = req.URL.String()
 	}
 
 	buf := getBuffer()
 	io.CopyBuffer(buf, resp.Body, make([]byte, 256))
-	e.Data = buf.String()
+	err.Data = buf.String()
 	putBuffer(buf)
 
-	return e
+	return err
 }
 
 // Hook is a hook to wrap and modify the http request.
@@ -234,7 +235,7 @@ func NewClient(client *http.Client) *Client {
 		header:  make(http.Header, 4),
 		encoder: EncodeData,
 	}
-	c.SetContentType("application/json; charset=UTF-8")
+	c.SetContentType(MIMEApplicationJSONCharsetUTF8)
 	c.SetResponseHandler2xx(DecodeResponseBody)
 	c.SetResponseHandler4xx(ReadResponseBodyAsError)
 	c.SetResponseHandler5xx(ReadResponseBodyAsError)
@@ -392,11 +393,19 @@ func (c *Client) AddAccept(contentType string) *Client {
 	return c.AddHeader(HeaderAccept, contentType)
 }
 
-// SetReqBodyEncoder sets the encoder to encode the request body.
+// SetBodyEncoder sets the encoder to encode the request body.
 //
 // The default encoder is EncodeData.
-func (c *Client) SetReqBodyEncoder(encode Encoder) *Client {
-	c.encoder = encode
+func (c *Client) SetBodyEncoder(encoder Encoder) *Client {
+	c.encoder = encoder
+	return c
+}
+
+// SetReqBodyEncoder is the alias of SetBodyEncoder.
+//
+// DEPRECATED! Please use SetBodyEncoder instead.
+func (c *Client) SetReqBodyEncoder(encoder Encoder) *Client {
+	c.encoder = encoder
 	return c
 }
 
@@ -673,11 +682,19 @@ func (r *Request) cleanBody() {
 	}
 }
 
-// SetReqBodyEncoder sets the encoder to encode the request body.
+// SetBodyEncoder sets the encoder to encode the request body.
 //
 // The default encoder is derived from the client.
-func (r *Request) SetReqBodyEncoder(encode Encoder) *Request {
-	r.encoder = encode
+func (r *Request) SetBodyEncoder(encoder Encoder) *Request {
+	r.encoder = encoder
+	return r
+}
+
+// SetReqBodyEncoder is alias of SetBodyEncoder.
+//
+// DEPRECATED! Please use SetBodyEncoder instead.
+func (r *Request) SetReqBodyEncoder(encoder Encoder) *Request {
+	r.encoder = encoder
 	return r
 }
 

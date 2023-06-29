@@ -156,6 +156,10 @@ func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
 // ReadResponseBodyAsError is a response handler to read the response body
 // as the error to be returned.
 func ReadResponseBodyAsError(dst interface{}, resp *http.Response) error {
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 { // For 3xx
+		return nil
+	}
+
 	err := Error{Code: resp.StatusCode}
 	err.Err = fmt.Errorf("got status code %d", resp.StatusCode)
 
@@ -246,8 +250,7 @@ func NewClient(client *http.Client) *Client {
 	}
 	c.SetContentType(MIMEApplicationJSONCharsetUTF8)
 	c.SetResponseHandler2xx(DecodeResponseBody)
-	c.SetResponseHandler4xx(ReadResponseBodyAsError)
-	c.SetResponseHandler5xx(ReadResponseBodyAsError)
+	c.SetResponseHandlerDefault(ReadResponseBodyAsError)
 	return c
 }
 

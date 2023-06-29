@@ -188,6 +188,13 @@ func (hs Hooks) Request(r *http.Request) *http.Request {
 	return r
 }
 
+func cloneHook(hook Hook) Hook {
+	if hooks, ok := hook.(Hooks); ok && len(hooks) > 0 {
+		hook = append(Hooks{}, hooks...)
+	}
+	return hook
+}
+
 // HookFunc is a hook function.
 type HookFunc func(*http.Request) *http.Request
 
@@ -247,6 +254,7 @@ func NewClient(client *http.Client) *Client {
 // Clone clones itself to a new one.
 func (c *Client) Clone() *Client {
 	return &Client{
+		hook:    cloneHook(c.hook),
 		client:  c.client,
 		query:   cloneQuery(c.query),
 		header:  cloneHeader(c.header),
@@ -526,12 +534,15 @@ func (c *Client) Request(method, requrl string) *Request {
 	return &Request{
 		ignore404: c.ignore404,
 
+		hclone: true,
+		qclone: true,
+		header: c.header,
+		query:  c.query,
+
 		hook:    c.hook,
 		encoder: c.encoder,
 		handler: c.handler,
 		client:  c.client,
-		header:  cloneHeader(c.header),
-		query:   cloneQuery(c.query),
 		method:  method,
 		url:     _url,
 		err:     err,
@@ -542,17 +553,35 @@ func (c *Client) Request(method, requrl string) *Request {
 type Request struct {
 	ignore404 bool
 
+	header http.Header
+	hclone bool
+
+	qclone bool
+	query  url.Values
+
 	hook    Hook
 	hookset bool
 	encoder Encoder
 	handler respHandler
 	reqbody io.Reader
 	client  *http.Client
-	header  http.Header
-	query   url.Values
 	method  string
 	url     string
 	err     error
+}
+
+func (r *Request) cloneQuery() {
+	if r.qclone {
+		r.query = cloneQuery(r.query)
+		r.qclone = false
+	}
+}
+
+func (r *Request) cloneHeader() {
+	if r.hclone {
+		r.header = cloneHeader(r.header)
+		r.hclone = false
+	}
 }
 
 // Ignore404 sets whether to ignore the status code 404, that's, if true,
@@ -603,6 +632,11 @@ func (r *Request) AddHook(hook Hook) *Request {
 
 // AddQueries adds the request queries.
 func (r *Request) AddQueries(queries url.Values) *Request {
+	if len(queries) == 0 {
+		return r
+	}
+
+	r.cloneQuery()
 	for key, values := range queries {
 		r.query[key] = values
 	}
@@ -611,6 +645,11 @@ func (r *Request) AddQueries(queries url.Values) *Request {
 
 // AddQueryMap adds the request queries as a map type.
 func (r *Request) AddQueryMap(queries map[string]string) *Request {
+	if len(queries) == 0 {
+		return r
+	}
+
+	r.cloneQuery()
 	for key, value := range queries {
 		r.query.Add(key, value)
 	}
@@ -619,24 +658,32 @@ func (r *Request) AddQueryMap(queries map[string]string) *Request {
 
 // AddQuery appends the value for the query key.
 func (r *Request) AddQuery(key, value string) *Request {
+	r.cloneQuery()
 	r.query.Add(key, value)
 	return r
 }
 
 // SetQuery sets the query key to the value.
 func (r *Request) SetQuery(key, value string) *Request {
+	r.cloneQuery()
 	r.query.Set(key, value)
 	return r
 }
 
 // AddHeader adds the request header as "key: value".
 func (r *Request) AddHeader(key, value string) *Request {
+	r.cloneHeader()
 	r.header.Add(key, value)
 	return r
 }
 
 // AddHeaders adds the request headers.
 func (r *Request) AddHeaders(headers http.Header) *Request {
+	if len(headers) == 0 {
+		return r
+	}
+
+	r.cloneHeader()
 	for key, values := range headers {
 		r.header[key] = values
 	}
@@ -645,6 +692,11 @@ func (r *Request) AddHeaders(headers http.Header) *Request {
 
 // AddHeaderMap adds the request headers as a map type.
 func (r *Request) AddHeaderMap(headers map[string]string) *Request {
+	if len(headers) == 0 {
+		return r
+	}
+
+	r.cloneHeader()
 	for key, value := range headers {
 		r.header.Add(key, value)
 	}
@@ -653,6 +705,7 @@ func (r *Request) AddHeaderMap(headers map[string]string) *Request {
 
 // SetHeader adds the request header as "key: value".
 func (r *Request) SetHeader(key, value string) *Request {
+	r.cloneHeader()
 	r.header.Set(key, value)
 	return r
 }
@@ -665,6 +718,11 @@ func (r *Request) SetContentType(ct string) *Request {
 
 // SetAccepts resets the accepted types of the response body to accepts.
 func (r *Request) SetAccepts(accepts ...string) *Request {
+	if len(accepts) == 0 {
+		return r
+	}
+
+	r.cloneHeader()
 	r.header[HeaderAccept] = accepts
 	return r
 }

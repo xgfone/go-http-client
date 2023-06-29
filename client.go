@@ -840,6 +840,9 @@ func (r *Request) SetResponseHandlerDefault(handler Handler) *Request {
 
 // Do sends the http request, decodes the body into result,
 // and returns the response.
+//
+// If result is a function, func(*http.Response) error, call it instead
+// of calling the response handler.
 func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 	resp = &Response{url: r.url, mhd: r.method, err: r.err}
 	defer r.cleanBody()
@@ -877,31 +880,38 @@ func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 	}
 
 	resp.resp, resp.err = r.client.Do(resp.req)
-	if resp.err == nil {
-		status := resp.resp.StatusCode
-		switch {
-		case r.handler.All != nil:
-			resp.err = r.handler.All(result, resp.resp)
+	if resp.err != nil {
+		return
+	}
 
-		case r.handler.H1xx != nil && status < 200:
-			resp.err = r.handler.H1xx(result, resp.resp)
+	if f, ok := result.(func(*http.Response) error); ok {
+		resp.err = f(resp.resp)
+		return
+	}
 
-		case r.handler.H2xx != nil && status < 300:
-			resp.err = r.handler.H2xx(result, resp.resp)
+	status := resp.resp.StatusCode
+	switch {
+	case r.handler.All != nil:
+		resp.err = r.handler.All(result, resp.resp)
 
-		case r.handler.H3xx != nil && status < 400:
-			resp.err = r.handler.H3xx(result, resp.resp)
+	case r.handler.H1xx != nil && status < 200:
+		resp.err = r.handler.H1xx(result, resp.resp)
 
-		case r.handler.H4xx != nil && status < 500 &&
-			(!r.ignore404 || resp.resp.StatusCode != 404):
-			resp.err = r.handler.H4xx(result, resp.resp)
+	case r.handler.H2xx != nil && status < 300:
+		resp.err = r.handler.H2xx(result, resp.resp)
 
-		case r.handler.H5xx != nil:
-			resp.err = r.handler.H5xx(result, resp.resp)
+	case r.handler.H3xx != nil && status < 400:
+		resp.err = r.handler.H3xx(result, resp.resp)
 
-		case r.handler.Default != nil:
-			resp.err = r.handler.Default(result, resp.resp)
-		}
+	case r.handler.H4xx != nil && status < 500 &&
+		(!r.ignore404 || resp.resp.StatusCode != 404):
+		resp.err = r.handler.H4xx(result, resp.resp)
+
+	case r.handler.H5xx != nil:
+		resp.err = r.handler.H5xx(result, resp.resp)
+
+	case r.handler.Default != nil:
+		resp.err = r.handler.Default(result, resp.resp)
 	}
 
 	return

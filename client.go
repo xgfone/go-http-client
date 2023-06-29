@@ -411,6 +411,12 @@ func (c *Client) SetReqBodyEncoder(encoder Encoder) *Client {
 	return c
 }
 
+// ClearAllResponseHandlers clears all the set response handlers.
+func (c *Client) ClearAllResponseHandlers() *Client {
+	c.handler = respHandler{}
+	return c
+}
+
 // SetResponseHandler sets the handler of the response, which hides
 // all the XXX handlers if set, but you can set it to nil to cancel it.
 //
@@ -705,6 +711,12 @@ func (r *Request) SetBodyEncoder(encoder Encoder) *Request {
 // DEPRECATED! Please use SetBodyEncoder instead.
 func (r *Request) SetReqBodyEncoder(encoder Encoder) *Request {
 	r.encoder = encoder
+	return r
+}
+
+// ClearAllResponseHandlers clears all the set response handlers.
+func (r *Request) ClearAllResponseHandlers() *Request {
+	r.handler = respHandler{}
 	return r
 }
 

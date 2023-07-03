@@ -46,7 +46,7 @@ const (
 )
 
 var bufpool = sync.Pool{New: func() interface{} {
-	return bytes.NewBuffer(make([]byte, 0, 1024))
+	return bytes.NewBuffer(make([]byte, 0, 256))
 }}
 
 func getBuffer() *bytes.Buffer    { return bufpool.Get().(*bytes.Buffer) }
@@ -562,11 +562,13 @@ type Request struct {
 	qclone bool
 	query  url.Values
 
+	reqbody io.Reader
+	bodybuf *bytes.Buffer
+
 	hook    Hook
 	hookset bool
 	encoder Encoder
 	handler respHandler
-	reqbody io.Reader
 	client  *http.Client
 	method  string
 	url     string
@@ -738,25 +740,36 @@ func (r *Request) AddAccept(contentType string) *Request {
 
 // SetBody sets the body of the request.
 func (r *Request) SetBody(body interface{}) *Request {
-	if r.err == nil && body != nil {
-		var buf *bytes.Buffer
-		if r.reqbody == nil {
-			buf = getBuffer()
-			r.reqbody = buf
-		} else {
-			buf = r.reqbody.(*bytes.Buffer)
-			buf.Reset()
-		}
-		r.err = r.encoder(buf, GetContentType(r.header), body)
+	if r.err != nil {
+		return r
 	}
+
+	switch body := body.(type) {
+	case nil:
+		r.cleanBody(nil)
+
+	case io.Reader:
+		r.cleanBody(body)
+
+	default:
+		if r.bodybuf == nil {
+			r.bodybuf = getBuffer()
+			r.reqbody = r.bodybuf
+		} else {
+			r.bodybuf.Reset()
+		}
+		r.err = r.encoder(r.bodybuf, GetContentType(r.header), body)
+	}
+
 	return r
 }
 
-func (r *Request) cleanBody() {
-	if r.reqbody != nil {
-		putBuffer(r.reqbody.(*bytes.Buffer))
-		r.reqbody = nil
+func (r *Request) cleanBody(body io.Reader) {
+	if r.bodybuf != nil {
+		putBuffer(r.bodybuf)
+		r.bodybuf = nil
 	}
+	r.reqbody = body
 }
 
 // SetBodyEncoder sets the encoder to encode the request body.
@@ -845,7 +858,7 @@ func (r *Request) SetResponseHandlerDefault(handler Handler) *Request {
 // of calling the response handler.
 func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 	resp = &Response{url: r.url, mhd: r.method, err: r.err}
-	defer r.cleanBody()
+	defer r.cleanBody(nil)
 
 	if resp.err != nil {
 		return

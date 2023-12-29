@@ -988,6 +988,12 @@ func (r *Response) Error() string {
 	return r.err.Error()
 }
 
+// Url returns the original request url.
+func (r *Response) Url() string { return r.url }
+
+// Method returns the original request method.
+func (r *Response) Method() string { return r.mhd }
+
 // Result returns the result error, which is an Error if not nil.
 func (r *Response) Result() error { return r.getError() }
 

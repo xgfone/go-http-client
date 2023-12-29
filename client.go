@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Pre-define some constants.
@@ -236,6 +237,7 @@ type Client struct {
 	baseurl *url.URL
 	encoder Encoder
 	handler respHandler
+	onresp  func(*Response)
 
 	ignore404 bool
 }
@@ -246,6 +248,7 @@ func NewClient(client *http.Client) *Client {
 		client:  client,
 		query:   make(url.Values, 4),
 		header:  make(http.Header, 4),
+		onresp:  logOnResponse,
 		encoder: EncodeData,
 	}
 	c.SetContentType(MIMEApplicationJSONCharsetUTF8)
@@ -261,12 +264,22 @@ func (c *Client) Clone() *Client {
 		client:  c.client,
 		query:   cloneQuery(c.query),
 		header:  cloneHeader(c.header),
+		onresp:  c.onresp,
 		baseurl: c.baseurl,
 		encoder: c.encoder,
 		handler: c.handler,
 
 		ignore404: c.ignore404,
 	}
+}
+
+// OnResponse sets a callback function to wrap the response,
+// which can be used to log the request and response result.
+//
+// For the default, it will log the method, url, status code and cost duration.
+func (c *Client) OnResponse(f func(*Response)) *Client {
+	c.onresp = f
+	return c
 }
 
 // Ignore404 sets whether to ignore the status code 404, that's, if true,
@@ -545,6 +558,7 @@ func (c *Client) Request(method, requrl string) *Request {
 		hook:    c.hook,
 		encoder: c.encoder,
 		handler: c.handler,
+		onresp:  c.onresp,
 		client:  c.client,
 		method:  method,
 		url:     _url,
@@ -569,6 +583,7 @@ type Request struct {
 	hookset bool
 	encoder Encoder
 	handler respHandler
+	onresp  func(*Response)
 	client  *http.Client
 	method  string
 	url     string
@@ -851,6 +866,12 @@ func (r *Request) SetResponseHandlerDefault(handler Handler) *Request {
 	return r
 }
 
+func onresp(req *Request, resp *Response) {
+	if req.onresp != nil {
+		req.onresp(resp)
+	}
+}
+
 // Do sends the http request, decodes the body into result,
 // and returns the response.
 //
@@ -858,6 +879,7 @@ func (r *Request) SetResponseHandlerDefault(handler Handler) *Request {
 // of calling the response handler.
 func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 	resp = &Response{url: r.url, mhd: r.method, err: r.err}
+	defer onresp(r, resp)
 	defer r.cleanBody(nil)
 
 	if resp.err != nil {
@@ -892,7 +914,9 @@ func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 		resp.req = r.hook.Request(resp.req)
 	}
 
+	start := time.Now()
 	resp.resp, resp.err = r.client.Do(resp.req)
+	resp.cost = time.Since(start)
 	if resp.err != nil {
 		return
 	}
@@ -937,6 +961,7 @@ type Response struct {
 	mhd    string
 	req    *http.Request
 	resp   *http.Response
+	cost   time.Duration
 	closed bool
 }
 
@@ -987,6 +1012,9 @@ func (r *Response) Error() string {
 	}
 	return r.err.Error()
 }
+
+// Cost returns the cost duration to call the request.
+func (r *Response) Cost() time.Duration { return r.cost }
 
 // Url returns the original request url.
 func (r *Response) Url() string { return r.url }

@@ -70,7 +70,7 @@ func (d discarder) Write(p []byte) (int, error) { return len(p), nil }
 func CloseBody(r io.ReadCloser) (err error) {
 	if r != nil {
 		buf := getBytes()
-		io.CopyBuffer(discarder{}, r, buf.Data[:])
+		_, _ = io.CopyBuffer(discarder{}, r, buf.Data[:])
 		err = r.Close()
 		putBytes(buf)
 	}
@@ -169,7 +169,7 @@ func ReadResponseBodyAsError(dst interface{}, resp *http.Response) error {
 	}
 
 	buf := getBuffer()
-	io.CopyBuffer(buf, resp.Body, make([]byte, 256))
+	_, _ = io.CopyBuffer(buf, resp.Body, make([]byte, 256))
 	err.Data = buf.String()
 	putBuffer(buf)
 
@@ -942,7 +942,7 @@ type Response struct {
 
 func (r *Response) close() *Response {
 	if !r.closed && r.resp != nil {
-		CloseBody(r.resp.Body)
+		_ = CloseBody(r.resp.Body)
 		r.closed = true
 	}
 	return r

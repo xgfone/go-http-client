@@ -60,15 +60,15 @@ func TestClient(t *testing.T) {
 		} else {
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(200)
-			json.NewEncoder(rw).Encode(map[string]string{
+			_ = json.NewEncoder(rw).Encode(map[string]string{
 				"username": "xgfone",
 				"password": "123456",
 			})
 		}
 	})
 	server := &http.Server{Addr: "localhost:12345", Handler: handler}
-	go server.ListenAndServe()
-	defer server.Shutdown(context.TODO())
+	go startserver(server)
+	defer stopserver(server)
 	time.Sleep(time.Second)
 
 	var result struct {
@@ -97,14 +97,14 @@ func TestClient2(t *testing.T) {
 	handler := http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(200)
-		json.NewEncoder(rw).Encode(map[string]string{
+		_ = json.NewEncoder(rw).Encode(map[string]string{
 			"username": "xgfone",
 			"password": "123456",
 		})
 	})
 	server := &http.Server{Addr: "localhost:12346", Handler: handler}
-	go server.ListenAndServe()
-	defer server.Shutdown(context.TODO())
+	go startserver(server)
+	defer stopserver(server)
 	time.Sleep(time.Second)
 
 	var result struct {
@@ -156,7 +156,7 @@ func BenchmarkCloseBody(b *testing.B) {
 	b.RunParallel(func(p *testing.PB) {
 		buf := closedBuffer{bytes.NewBuffer(nil)}
 		for p.Next() {
-			CloseBody(buf)
+			_ = CloseBody(buf)
 		}
 	})
 }
@@ -184,3 +184,6 @@ func TestCloseBody(t *testing.T) {
 type closedBuffer struct{ *bytes.Buffer }
 
 func (b closedBuffer) Close() error { return nil }
+
+func startserver(server *http.Server) { _ = server.ListenAndServe() }
+func stopserver(server *http.Server)  { _ = server.Shutdown(context.TODO()) }

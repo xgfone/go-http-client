@@ -35,12 +35,12 @@ func (e Error) Error() string { return e.String() }
 func (e Error) String() string {
 	var err string
 	if e.Err != nil {
-		err = fmt.Sprintf(", err=%s", e.Err.Error())
+		err = ", err=" + e.Err.Error()
 	}
 
 	var data string
 	if e.Data != "" {
-		data = fmt.Sprintf(", data=%s", e.Data)
+		data = ", data=" + e.Data
 	}
 
 	var code string

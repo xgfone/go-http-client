@@ -63,7 +63,6 @@ func (b *buffer) Body() interface{} { return b.data }
 
 func getBuffer() *buffer {
 	buf := bufpool.Get().(*buffer)
-	buf.data = ""
 	return buf
 }
 
@@ -891,6 +890,13 @@ func (r *Request) SetResponseHandler5xx(handler Handler) *Request {
 // Default: nil
 func (r *Request) SetResponseHandlerDefault(handler Handler) *Request {
 	r.handler.Default = handler
+	return r
+}
+
+// OnResponse sets a callback function to wrap the response,
+// which can be used to log the request and response result.
+func (r *Request) OnResponse(f func(*Response)) *Request {
+	r.onresp = f
 	return r
 }
 

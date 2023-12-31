@@ -27,7 +27,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 )
 
 // Pre-define some constants.
@@ -55,7 +54,7 @@ var bufpool = sync.Pool{New: func() interface{} {
 
 type buffer struct {
 	bytes.Buffer
-	data string
+	data interface{}
 }
 
 func (b *buffer) Close() error      { return nil }
@@ -68,7 +67,7 @@ func getBuffer() *buffer {
 
 func putBuffer(buf *buffer) {
 	buf.Reset()
-	buf.data = ""
+	buf.data = nil
 	bufpool.Put(buf)
 }
 
@@ -793,17 +792,12 @@ func (r *Request) SetBody(body interface{}) *Request {
 			r.bodybuf.Reset()
 		}
 		r.err = r.encoder(r.bodybuf, GetContentType(r.header), body)
-		r.bodybuf.data = tostring(r.bodybuf.Bytes())
+		if r.err == nil {
+			r.bodybuf.data = body
+		}
 	}
 
 	return r
-}
-
-func tostring(data []byte) string {
-	if _len := len(data) - 1; _len >= 0 && data[_len] == '\n' {
-		data = data[:_len]
-	}
-	return *(*string)(unsafe.Pointer(&data))
 }
 
 func (r *Request) cleanBody(body io.Reader) {

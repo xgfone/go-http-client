@@ -1,4 +1,4 @@
-// Copyright 2021~2022 xgfone
+// Copyright 2021~2024 xgfone
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 // Pre-define some constants.
@@ -47,11 +48,30 @@ const (
 )
 
 var bufpool = sync.Pool{New: func() interface{} {
-	return bytes.NewBuffer(make([]byte, 0, 256))
+	buf := new(buffer)
+	buf.Grow(512)
+	return buf
 }}
 
-func getBuffer() *bytes.Buffer    { return bufpool.Get().(*bytes.Buffer) }
-func putBuffer(buf *bytes.Buffer) { buf.Reset(); bufpool.Put(buf) }
+type buffer struct {
+	bytes.Buffer
+	data string
+}
+
+func (b *buffer) Close() error      { return nil }
+func (b *buffer) Body() interface{} { return b.data }
+
+func getBuffer() *buffer {
+	buf := bufpool.Get().(*buffer)
+	buf.data = ""
+	return buf
+}
+
+func putBuffer(buf *buffer) {
+	buf.Reset()
+	buf.data = ""
+	bufpool.Put(buf)
+}
 
 type bytesT struct{ Data []byte }
 
@@ -577,7 +597,7 @@ type Request struct {
 	query  url.Values
 
 	reqbody io.Reader
-	bodybuf *bytes.Buffer
+	bodybuf *buffer
 
 	hook    Hook
 	hookset bool
@@ -774,9 +794,17 @@ func (r *Request) SetBody(body interface{}) *Request {
 			r.bodybuf.Reset()
 		}
 		r.err = r.encoder(r.bodybuf, GetContentType(r.header), body)
+		r.bodybuf.data = tostring(r.bodybuf.Bytes())
 	}
 
 	return r
+}
+
+func tostring(data []byte) string {
+	if _len := len(data) - 1; _len >= 0 && data[_len] == '\n' {
+		data = data[:_len]
+	}
+	return *(*string)(unsafe.Pointer(&data))
 }
 
 func (r *Request) cleanBody(body io.Reader) {
@@ -879,8 +907,8 @@ func onresp(req *Request, resp *Response) {
 // of calling the response handler.
 func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 	resp = &Response{url: r.url, mhd: r.method, err: r.err}
-	defer onresp(r, resp)
 	defer r.cleanBody(nil)
+	defer onresp(r, resp)
 
 	if resp.err != nil {
 		return

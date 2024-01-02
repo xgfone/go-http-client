@@ -887,7 +887,7 @@ func onresp(req *Request, resp *Response) {
 // If result is a function, func(*http.Response) error, call it instead
 // of calling the response handler.
 func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
-	resp = &Response{url: r.url, mhd: r.method, err: r.err}
+	resp = &Response{url: r.url, mhd: r.method, err: r.err, rbody: r.body}
 	defer r.cleanBody(nil)
 	defer onresp(r, resp)
 
@@ -971,6 +971,7 @@ type Response struct {
 	req    *http.Request
 	resp   *http.Response
 	cost   time.Duration
+	rbody  interface{}
 	closed bool
 }
 
@@ -1033,6 +1034,9 @@ func (r *Response) Method() string { return r.mhd }
 
 // Result returns the result error, which is an Error if not nil.
 func (r *Response) Result() error { return r.getError() }
+
+// ReqBody returns the original request body.
+func (r *Response) ReqBody() interface{} { return r.rbody }
 
 // Request returns http.Request.
 func (r *Response) Request() *http.Request { return r.req }

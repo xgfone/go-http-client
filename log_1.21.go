@@ -18,7 +18,10 @@
 package httpclient
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log/slog"
 	"unsafe"
 )
@@ -34,7 +37,12 @@ func logOnResponse(r *Response) { _logOnResponse(r, slog.LevelDebug, nil) }
 
 func _logOnResponse(r *Response, level slog.Level,
 	appendAttrs func(r *Response, kvs []slog.Attr) []slog.Attr) {
-	if !slog.Default().Enabled(r.req.Context(), level) {
+	ctx := context.Background()
+	if r.req != nil {
+		ctx = r.req.Context()
+	}
+
+	if !slog.Default().Enabled(ctx, level) {
 		return
 	}
 
@@ -46,21 +54,20 @@ func _logOnResponse(r *Response, level slog.Level,
 
 	if r.req != nil {
 		kvs = append(kvs, slog.Any("reqheaders", r.req.Header))
-		if v, ok := r.req.Body.(interface{ Body() any }); ok {
-			if GetContentType(r.req.Header) == MIMEApplicationJSON {
-				switch body := v.Body().(type) {
-				case string:
-					data := unsafe.Slice(unsafe.StringData(body), len(body))
-					kvs = append(kvs, slog.Any("reqbody", json.RawMessage(data)))
-				case []byte:
-					kvs = append(kvs, slog.Any("reqbody", json.RawMessage(body)))
-				case json.RawMessage:
-					kvs = append(kvs, slog.Any("reqbody", body))
-				default:
-					kvs = append(kvs, slog.Any("reqbody", v.Body()))
-				}
-			} else {
-				kvs = append(kvs, slog.Any("reqbody", v.Body()))
+		if _logreqbody(GetContentType(r.req.Header)) {
+			switch body := r.ReqBody().(type) {
+			case string:
+				data := unsafe.Slice(unsafe.StringData(body), len(body))
+				kvs = append(kvs, slog.Any("reqbody", json.RawMessage(data)))
+			case []byte:
+				kvs = append(kvs, slog.Any("reqbody", json.RawMessage(body)))
+			case json.RawMessage:
+				kvs = append(kvs, slog.Any("reqbody", body))
+			case fmt.Stringer:
+				kvs = append(kvs, slog.String("reqbody", body.String()))
+			case io.Reader: // Ignore
+			default:
+				kvs = append(kvs, slog.Any("reqbody", body))
 			}
 		}
 	}
@@ -82,5 +89,17 @@ func _logOnResponse(r *Response, level slog.Level,
 		kvs = append(kvs, slog.Any("err", err))
 	}
 
-	slog.LogAttrs(r.req.Context(), level, "log the http request", kvs...)
+	slog.LogAttrs(ctx, level, "log the http request", kvs...)
+}
+
+func _logreqbody(ct string) bool {
+	switch ct {
+	case MIMEApplicationJSON,
+		MIMEApplicationForm,
+		MIMEApplicationXML,
+		"text/plain":
+		return true
+	default:
+		return false
+	}
 }

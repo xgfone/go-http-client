@@ -47,29 +47,11 @@ const (
 )
 
 var bufpool = sync.Pool{New: func() interface{} {
-	buf := new(buffer)
-	buf.Grow(512)
-	return buf
+	return bytes.NewBuffer(make([]byte, 0, 512))
 }}
 
-type buffer struct {
-	bytes.Buffer
-	data interface{}
-}
-
-func (b *buffer) Close() error      { return nil }
-func (b *buffer) Body() interface{} { return b.data }
-
-func getBuffer() *buffer {
-	buf := bufpool.Get().(*buffer)
-	return buf
-}
-
-func putBuffer(buf *buffer) {
-	buf.Reset()
-	buf.data = nil
-	bufpool.Put(buf)
-}
+func getBuffer() *bytes.Buffer    { return bufpool.Get().(*bytes.Buffer) }
+func putBuffer(buf *bytes.Buffer) { buf.Reset(); bufpool.Put(buf) }
 
 type bytesT struct{ Data []byte }
 
@@ -595,7 +577,8 @@ type Request struct {
 	query  url.Values
 
 	reqbody io.Reader
-	bodybuf *buffer
+	bodybuf *bytes.Buffer
+	body    interface{}
 
 	hook    Hook
 	hookset bool
@@ -777,6 +760,7 @@ func (r *Request) SetBody(body interface{}) *Request {
 		return r
 	}
 
+	r.body = body
 	switch body := body.(type) {
 	case nil:
 		r.cleanBody(nil)
@@ -787,14 +771,11 @@ func (r *Request) SetBody(body interface{}) *Request {
 	default:
 		if r.bodybuf == nil {
 			r.bodybuf = getBuffer()
-			r.reqbody = r.bodybuf
 		} else {
 			r.bodybuf.Reset()
 		}
 		r.err = r.encoder(r.bodybuf, GetContentType(r.header), body)
-		if r.err == nil {
-			r.bodybuf.data = body
-		}
+		r.reqbody = r.bodybuf
 	}
 
 	return r

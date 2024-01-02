@@ -120,6 +120,31 @@ func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 			err = xml.NewEncoder(w).Encode(data)
 		case MIMEApplicationJSON:
 			err = json.NewEncoder(w).Encode(data)
+		case MIMEApplicationForm:
+			switch v := data.(type) {
+			case map[string]string:
+				vs := make(url.Values, len(v))
+				for key, value := range v {
+					vs[key] = []string{value}
+				}
+				_, err = io.WriteString(w, vs.Encode())
+
+			case map[string]interface{}:
+				vs := make(url.Values, len(v))
+				for key, value := range v {
+					vs[key] = []string{fmt.Sprint(value)}
+				}
+				_, err = io.WriteString(w, vs.Encode())
+
+			case interface{ MarshalForm() ([]byte, error) }:
+				var _data []byte
+				if _data, err = v.MarshalForm(); err == nil {
+					_, err = w.Write(_data)
+				}
+
+			default:
+				err = fmt.Errorf("not support to encode %T to %s", data, MIMEApplicationForm)
+			}
 		default:
 			err = fmt.Errorf("unsupported request Content-Type '%s'", contentType)
 		}

@@ -54,13 +54,13 @@ func _logOnResponse(r *Response, level slog.Level,
 
 	if r.req != nil {
 		kvs = append(kvs, slog.Any("reqheaders", r.req.Header))
-		if _logreqbody(GetContentType(r.req.Header)) {
+		if ct := GetContentType(r.req.Header); _logreqbody(ct) {
 			switch body := r.ReqBody().(type) {
 			case string:
 				data := unsafe.Slice(unsafe.StringData(body), len(body))
-				kvs = append(kvs, slog.Any("reqbody", json.RawMessage(data)))
+				kvs = append(kvs, slog.Any("reqbody", _bodydata(ct, data)))
 			case []byte:
-				kvs = append(kvs, slog.Any("reqbody", json.RawMessage(body)))
+				kvs = append(kvs, slog.Any("reqbody", _bodydata(ct, body)))
 			case json.RawMessage:
 				kvs = append(kvs, slog.Any("reqbody", body))
 			case fmt.Stringer:
@@ -90,6 +90,13 @@ func _logOnResponse(r *Response, level slog.Level,
 	}
 
 	slog.LogAttrs(ctx, level, "log the http request", kvs...)
+}
+
+func _bodydata(ct string, data []byte) any {
+	if ct == MIMEApplicationJSON && len(data) > 0 && (data[0] == '{' || data[0] == '[') {
+		return json.RawMessage(data)
+	}
+	return unsafe.String(unsafe.SliceData(data), len(data))
 }
 
 func _logreqbody(ct string) bool {

@@ -119,7 +119,9 @@ func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 		case MIMEApplicationXML:
 			err = xml.NewEncoder(w).Encode(data)
 		case MIMEApplicationJSON:
-			err = json.NewEncoder(w).Encode(data)
+			enc := json.NewEncoder(w)
+			enc.SetEscapeHTML(false)
+			err = enc.Encode(data)
 		case MIMEApplicationForm:
 			switch v := data.(type) {
 			case map[string]string:

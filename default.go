@@ -73,12 +73,7 @@ func DeleteJSON(url string, respBody interface{}, reqBody interface{}) error {
 
 // GetJSONContext is a convenient function to get the JSON data from the remote server.
 func GetJSONContext(c context.Context, url string, respBody interface{}) error {
-	return Get(url).
-		SetContentType("application/json; charset=UTF-8").
-		SetAccepts("application/json").
-		Do(c, respBody).
-		Close().
-		Unwrap()
+	return Get(url).Do(c, respBody).Close().Unwrap()
 }
 
 // PutJSONContext is a convenient function to send the JSON data with the method PUT.
@@ -102,10 +97,5 @@ func DeleteJSONContext(c context.Context, url string, respBody interface{}, reqB
 }
 
 func requestJSON(c context.Context, req *Request, respBody interface{}, reqBody interface{}) error {
-	return req.
-		SetContentType(MIMEApplicationJSONCharsetUTF8).
-		SetAccepts(MIMEApplicationJSON).
-		SetBody(reqBody).
-		Do(c, respBody).
-		Unwrap()
+	return req.SetBody(reqBody).Do(c, respBody).Unwrap()
 }

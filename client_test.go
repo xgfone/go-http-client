@@ -20,9 +20,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestUrlMerge(t *testing.T) {
+	var baseurl = strings.TrimRight("http://127.0.0.1///", "/")
+	var expect string
+
+	expect = "http://127.0.0.1"
+	if url := mergeurl(baseurl, ""); url != expect {
+		t.Errorf("expect url '%s', but got '%s'", expect, url)
+	}
+
+	expect = "http://127.0.0.1/"
+	if url := mergeurl(baseurl, "/"); url != expect {
+		t.Errorf("expect url '%s', but got '%s'", expect, url)
+	}
+
+	expect = "http://127.0.0.1/path"
+	if url := mergeurl(baseurl, "/path"); url != expect {
+		t.Errorf("expect url '%s', but got '%s'", expect, url)
+	}
+
+	expect = "http://127.0.0.1/path"
+	if url := mergeurl(baseurl, "path"); url != expect {
+		t.Errorf("expect url '%s', but got '%s'", expect, url)
+	}
+}
 
 func hookAddQuery(key, value string) HookFunc {
 	return func(r *http.Request) *http.Request {

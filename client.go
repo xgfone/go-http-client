@@ -261,7 +261,7 @@ type Client struct {
 	query   url.Values
 	header  http.Header
 	client  *http.Client
-	baseurl *url.URL
+	baseurl string
 	encoder Encoder
 	handler respHandler
 	onresp  func(*Response)
@@ -360,13 +360,7 @@ func (c *Client) AddHook(hook Hook) *Client {
 //
 // If baseurl is empty, it will clear the base url.
 func (c *Client) SetBaseURL(baseurl string) *Client {
-	if baseurl == "" {
-		c.baseurl = nil
-	} else if u, err := url.Parse(baseurl); err != nil {
-		panic(fmt.Errorf("invalid base url '%s'", baseurl))
-	} else {
-		c.baseurl = u
-	}
+	c.baseurl = strings.TrimRight(baseurl, "/")
 	return c
 }
 
@@ -560,17 +554,30 @@ func (c *Client) Options(url string) *Request {
 	return c.Request(http.MethodOptions, url)
 }
 
+func mergeurl(baseurl, requrl string) string {
+	switch _len := len(requrl); {
+	case _len == 0:
+
+	case requrl[0] == '/':
+		baseurl += requrl
+
+	default:
+		baseurl = strings.Join([]string{baseurl, requrl}, "/")
+	}
+
+	return baseurl
+}
+
 // Request builds and returns a new request.
 func (c *Client) Request(method, requrl string) *Request {
 	_url := requrl
 
 	var err error
 	if !strings.HasPrefix(requrl, "http") {
-		var u *url.URL
-		if c.baseurl == nil {
+		if c.baseurl == "" {
 			err = fmt.Errorf("invalid request url '%s'", requrl)
-		} else if u, err = url.Parse(requrl); err == nil {
-			_url = c.baseurl.ResolveReference(u).String()
+		} else {
+			_url = mergeurl(c.baseurl, requrl)
 		}
 	}
 

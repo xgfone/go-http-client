@@ -56,7 +56,7 @@ func putBuffer(buf *bytes.Buffer) { buf.Reset(); bufpool.Put(buf) }
 type bytesT struct{ Data []byte }
 
 var bytespool = sync.Pool{New: func() interface{} {
-	return &bytesT{Data: make([]byte, 1024)}
+	return &bytesT{Data: make([]byte, 256)}
 }}
 
 func getBytes() *bytesT  { return bytespool.Get().(*bytesT) }
@@ -124,6 +124,9 @@ func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 			err = enc.Encode(data)
 		case MIMEApplicationForm:
 			switch v := data.(type) {
+			case url.Values:
+				_, err = io.WriteString(w, v.Encode())
+
 			case map[string]string:
 				vs := make(url.Values, len(v))
 				for key, value := range v {
@@ -197,8 +200,10 @@ func ReadResponseBodyAsError(dst interface{}, resp *http.Response) error {
 	}
 
 	buf := getBuffer()
-	_, _ = io.CopyBuffer(buf, resp.Body, make([]byte, 256))
+	bytebuf := getBytes()
+	_, _ = io.CopyBuffer(buf, resp.Body, bytebuf.Data)
 	err.Data = buf.String()
+	putBytes(bytebuf)
 	putBuffer(buf)
 
 	return err

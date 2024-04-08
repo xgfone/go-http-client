@@ -453,14 +453,6 @@ func (c *Client) SetBodyEncoder(encoder Encoder) *Client {
 	return c
 }
 
-// SetReqBodyEncoder is the alias of SetBodyEncoder.
-//
-// DEPRECATED! Please use SetBodyEncoder instead.
-func (c *Client) SetReqBodyEncoder(encoder Encoder) *Client {
-	c.encoder = encoder
-	return c
-}
-
 // ClearAllResponseHandlers clears all the set response handlers.
 func (c *Client) ClearAllResponseHandlers() *Client {
 	c.handler = respHandler{}
@@ -832,14 +824,6 @@ func (r *Request) cleanBody(body io.Reader) {
 //
 // The default encoder is derived from the client.
 func (r *Request) SetBodyEncoder(encoder Encoder) *Request {
-	r.encoder = encoder
-	return r
-}
-
-// SetReqBodyEncoder is alias of SetBodyEncoder.
-//
-// DEPRECATED! Please use SetBodyEncoder instead.
-func (r *Request) SetReqBodyEncoder(encoder Encoder) *Request {
 	r.encoder = encoder
 	return r
 }

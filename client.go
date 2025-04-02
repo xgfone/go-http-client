@@ -46,7 +46,7 @@ const (
 	MIMEApplicationJSONCharsetUTF8 = "application/json; charset=UTF-8"
 )
 
-var bufpool = sync.Pool{New: func() interface{} {
+var bufpool = sync.Pool{New: func() any {
 	return bytes.NewBuffer(make([]byte, 0, 512))
 }}
 
@@ -55,7 +55,7 @@ func putBuffer(buf *bytes.Buffer) { buf.Reset(); bufpool.Put(buf) }
 
 type bytesT struct{ Data []byte }
 
-var bytespool = sync.Pool{New: func() interface{} {
+var bytespool = sync.Pool{New: func() any {
 	return &bytesT{Data: make([]byte, 256)}
 }}
 
@@ -100,7 +100,7 @@ func GetContentType(header http.Header) string {
 //   - string
 //   - io.Reader
 //   - io.WriterTo
-func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
+func EncodeData(w io.Writer, contentType string, data any) (err error) {
 	switch v := data.(type) {
 	case *bytes.Buffer:
 		_, err = w.Write(v.Bytes())
@@ -134,7 +134,7 @@ func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 				}
 				_, err = io.WriteString(w, vs.Encode())
 
-			case map[string]interface{}:
+			case map[string]any:
 				vs := make(url.Values, len(v))
 				for key, value := range v {
 					vs[key] = []string{fmt.Sprint(value)}
@@ -161,7 +161,7 @@ func EncodeData(w io.Writer, contentType string, data interface{}) (err error) {
 //
 // If ct is equal to "application/xml" or "application/json", it will use
 // the xml or json decoder to decode the data. Or returns an error.
-func DecodeFromReader(dst interface{}, ct string, r io.Reader) (err error) {
+func DecodeFromReader(dst any, ct string, r io.Reader) (err error) {
 	switch ct {
 	case "":
 		err = errors.New("no response header Content-Type")
@@ -177,7 +177,7 @@ func DecodeFromReader(dst interface{}, ct string, r io.Reader) (err error) {
 
 // DecodeResponseBody is a response handler to decode the response body
 // into dst.
-func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
+func DecodeResponseBody(dst any, resp *http.Response) (err error) {
 	if dst == nil || resp.StatusCode == 204 {
 		return
 	}
@@ -186,7 +186,7 @@ func DecodeResponseBody(dst interface{}, resp *http.Response) (err error) {
 
 // ReadResponseBodyAsError is a response handler to read the response body
 // as the error to be returned.
-func ReadResponseBodyAsError(dst interface{}, resp *http.Response) error {
+func ReadResponseBodyAsError(dst any, resp *http.Response) error {
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 { // For 3xx
 		return nil
 	}
@@ -240,13 +240,13 @@ func (f HookFunc) Request(r *http.Request) *http.Request { return f(r) }
 
 type (
 	// Encoder is used to encode the data by the content type to dst.
-	Encoder func(dst io.Writer, contentType string, data interface{}) error
+	Encoder func(dst io.Writer, contentType string, data any) error
 
 	// Decoder is used to decode the data by the content type to dst.
-	Decoder func(dst interface{}, contentType string, data io.Reader) error
+	Decoder func(dst any, contentType string, data io.Reader) error
 
 	// Handler is used to handle the response.
-	Handler func(dst interface{}, resp *http.Response) error
+	Handler func(dst any, resp *http.Response) error
 )
 
 type respHandler struct {
@@ -609,7 +609,7 @@ type Request struct {
 
 	reqbody io.Reader
 	bodybuf *bytes.Buffer
-	body    interface{}
+	body    any
 
 	hook    Hook
 	hookset bool
@@ -786,7 +786,7 @@ func (r *Request) AddAccept(contentType string) *Request {
 }
 
 // SetBody sets the body of the request.
-func (r *Request) SetBody(body interface{}) *Request {
+func (r *Request) SetBody(body any) *Request {
 	if r.err != nil {
 		return r
 	}
@@ -909,7 +909,7 @@ func onresp(req *Request, resp *Response) {
 //
 // If result is a function, func(*http.Response) error, call it instead
 // of calling the response handler.
-func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
+func (r *Request) Do(c context.Context, result any) (resp *Response) {
 	resp = &Response{url: r.url, mhd: r.method, err: r.err, rbody: r.body}
 	defer r.cleanBody(nil)
 	defer onresp(r, resp)
@@ -994,7 +994,7 @@ type Response struct {
 	req    *http.Request
 	resp   *http.Response
 	cost   time.Duration
-	rbody  interface{}
+	rbody  any
 	closed bool
 }
 
@@ -1059,7 +1059,7 @@ func (r *Response) Method() string { return r.mhd }
 func (r *Response) Result() error { return r.getError() }
 
 // ReqBody returns the original request body.
-func (r *Response) ReqBody() interface{} { return r.rbody }
+func (r *Response) ReqBody() any { return r.rbody }
 
 // Request returns http.Request.
 func (r *Response) Request() *http.Request { return r.req }

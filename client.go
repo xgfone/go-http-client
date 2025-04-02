@@ -79,7 +79,7 @@ func CloseBody(r io.ReadCloser) (err error) {
 }
 
 func cloneQuery(query url.Values) url.Values {
-	return url.Values(cloneHeader(http.Header(query)))
+	return url.Values(http.Header(query).Clone())
 }
 
 // GetContentType returns the Content-Type from the header,
@@ -295,7 +295,7 @@ func (c *Client) Clone() *Client {
 		hook:    cloneHook(c.hook),
 		client:  c.client,
 		query:   cloneQuery(c.query),
-		header:  cloneHeader(c.header),
+		header:  c.header.Clone(),
 		onresp:  c.onresp,
 		baseurl: c.baseurl,
 		encoder: c.encoder,
@@ -631,7 +631,7 @@ func (r *Request) cloneQuery() {
 
 func (r *Request) cloneHeader() {
 	if r.hclone {
-		r.header = cloneHeader(r.header)
+		r.header = r.header.Clone()
 		r.hclone = false
 	}
 }
@@ -918,7 +918,7 @@ func (r *Request) Do(c context.Context, result interface{}) (resp *Response) {
 		return
 	}
 
-	resp.req, resp.err = NewRequestWithContext(c, r.method, r.url, r.reqbody)
+	resp.req, resp.err = http.NewRequestWithContext(c, r.method, r.url, r.reqbody)
 	if resp.err != nil {
 		return
 	}

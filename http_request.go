@@ -21,8 +21,6 @@ import (
 	"maps"
 	"net/http"
 	"time"
-
-	"github.com/xgfone/go-toolkit/httpx"
 )
 
 // Request is a http request.
@@ -58,7 +56,7 @@ func (r *Request) SetBody(body any) *Request {
 		} else {
 			r.bodybuf.Reset()
 		}
-		r.err = r.encoder(r.bodybuf, httpx.ContentType(r.header), body)
+		r.err = r.encoder(r.bodybuf, getContentType(r.header), body)
 		r.reqbody = r.bodybuf
 	}
 

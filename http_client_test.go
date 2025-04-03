@@ -21,8 +21,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/xgfone/go-toolkit/httpx"
 )
 
 func TestUrlMerge(t *testing.T) {
@@ -68,7 +66,7 @@ func TestClient(t *testing.T) {
 			ProtoMajor: 1,
 			ProtoMinor: 1,
 
-			Header:        http.Header{httpx.HeaderContentType: []string{httpx.MIMEApplicationJSON}},
+			Header:        http.Header{"Content-Type": []string{"application/json"}},
 			ContentLength: int64(buf.Len()),
 
 			Close: true,
@@ -84,7 +82,7 @@ func TestClient(t *testing.T) {
 	DefaultClient.SetBaseURL("https://example.com/v1")
 	err := Get("/path/to").
 		SetHTTPClient(doer).
-		AddAccept(httpx.MIMEApplicationJSON).
+		AddAccept("application/json").
 		AddHeader("k1", "v1").
 		AddQuery("k2", "v2").
 		Do(context.Background(), &resp).

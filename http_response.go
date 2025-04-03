@@ -18,8 +18,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/xgfone/go-toolkit/httpx"
 )
 
 // Response is a http response.
@@ -122,7 +120,7 @@ func (r *Response) ContentType() string {
 	if r.resp == nil {
 		return ""
 	}
-	return httpx.ContentType(r.resp.Header)
+	return getContentType(r.resp.Header)
 }
 
 // Body returns the response body,

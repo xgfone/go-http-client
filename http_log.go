@@ -22,8 +22,6 @@ import (
 	"log/slog"
 	"sync"
 	"unsafe"
-
-	"github.com/xgfone/go-toolkit/httpx"
 )
 
 type logAttr struct {
@@ -68,7 +66,7 @@ func _logOnResponse(r *Response, level slog.Level,
 
 	if r.req != nil {
 		attr.Attrs = append(attr.Attrs, slog.Any("reqheaders", r.req.Header))
-		if ct := httpx.ContentType(r.req.Header); _logreqbody(ct) {
+		if ct := getContentType(r.req.Header); _logreqbody(ct) {
 			switch body := r.ReqBody().(type) {
 			case string:
 				data := unsafe.Slice(unsafe.StringData(body), len(body))
@@ -107,7 +105,7 @@ func _logOnResponse(r *Response, level slog.Level,
 }
 
 func _bodydata(ct string, data []byte) any {
-	if ct == httpx.MIMEApplicationJSON && len(data) > 0 && (data[0] == '{' || data[0] == '[') {
+	if ct == "application/json" && len(data) > 0 && (data[0] == '{' || data[0] == '[') {
 		return json.RawMessage(data)
 	}
 	return unsafe.String(unsafe.SliceData(data), len(data))
@@ -115,11 +113,13 @@ func _bodydata(ct string, data []byte) any {
 
 func _logreqbody(ct string) bool {
 	switch ct {
-	case httpx.MIMEApplicationJSON,
-		httpx.MIMEApplicationForm,
-		httpx.MIMEApplicationXML,
-		httpx.MIMETextPlain,
-		httpx.MIMETextHTML:
+	case
+		"application/json",
+		"application/xml",
+		"application/x-www-form-urlencoded",
+		"text/plain",
+		"text/html",
+		"text/xml":
 		return true
 	default:
 		return false

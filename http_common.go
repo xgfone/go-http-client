@@ -18,8 +18,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-
-	"github.com/xgfone/go-toolkit/httpx"
 )
 
 type (
@@ -257,7 +255,7 @@ func (c *common[T]) SetHeader(key, value string) *T {
 //
 // Default: "application/json; charset=UTF-8"
 func (c *common[T]) SetContentType(ct string) *T {
-	return c.SetHeader(httpx.HeaderContentType, ct)
+	return c.SetHeader("Content-Type", ct)
 }
 
 // SetAccepts resets the accepted types of the response body to accepts.
@@ -267,14 +265,14 @@ func (c *common[T]) SetAccepts(accepts ...string) *T {
 	}
 
 	c.cloneHeader()
-	c.header[httpx.HeaderAccept] = accepts
+	c.header["Accept"] = accepts
 	return c.target
 }
 
 // AddAccept adds the accepted types of the response body, which is equal to
 // AddHeader("Accept", contentType).
 func (c *common[T]) AddAccept(contentType string) *T {
-	return c.AddHeader(httpx.HeaderAccept, contentType)
+	return c.AddHeader("Accept", contentType)
 }
 
 // SetBodyEncoder sets the encoder to encode the request body.

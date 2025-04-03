@@ -23,9 +23,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
-
-	"github.com/xgfone/go-toolkit/httpx"
 )
 
 var errMissingContentType = errors.New("missing header Content-Type")
@@ -48,6 +47,14 @@ func putBytes(b *bytesT) { bytespool.Put(b) }
 
 func cloneQuery(query url.Values) url.Values {
 	return url.Values(http.Header(query).Clone())
+}
+
+func getContentType(header http.Header) (mime string) {
+	mime = header.Get("Content-Type")
+	if index := strings.IndexByte(mime, ';'); index > -1 {
+		mime = strings.TrimSpace(mime[:index])
+	}
+	return
 }
 
 // EncodeData encodes the data by contentType and writes it into w.
@@ -76,13 +83,13 @@ func EncodeData(w io.Writer, contentType string, data any) (err error) {
 		switch contentType {
 		case "":
 			err = errMissingContentType
-		case httpx.MIMEApplicationXML:
+		case "application/xml":
 			err = xml.NewEncoder(w).Encode(data)
-		case httpx.MIMEApplicationJSON:
+		case "application/json":
 			enc := json.NewEncoder(w)
 			enc.SetEscapeHTML(false)
 			err = enc.Encode(data)
-		case httpx.MIMEApplicationForm:
+		case "application/x-www-form-urlencoded":
 			switch v := data.(type) {
 			case url.Values:
 				_, err = io.WriteString(w, v.Encode())
@@ -108,10 +115,10 @@ func EncodeData(w io.Writer, contentType string, data any) (err error) {
 				}
 
 			default:
-				err = fmt.Errorf("not support to encode %T to %s", data, httpx.MIMEApplicationForm)
+				err = fmt.Errorf("not support to encode %T to application/x-www-form-urlencoded", data)
 			}
 		default:
-			err = fmt.Errorf("unsupported request Content-Type '%s'", contentType)
+			err = fmt.Errorf("unsupported Content-Type '%s'", contentType)
 		}
 	}
 	return
@@ -125,9 +132,9 @@ func DecodeFromReader(dst any, ct string, r io.Reader) (err error) {
 	switch ct {
 	case "":
 		err = errMissingContentType
-	case httpx.MIMEApplicationXML:
+	case "application/xml":
 		err = xml.NewDecoder(r).Decode(dst)
-	case httpx.MIMEApplicationJSON:
+	case "application/json":
 		err = json.NewDecoder(r).Decode(dst)
 	default:
 		err = fmt.Errorf("unsupported response Content-Type '%s'", ct)
@@ -141,7 +148,7 @@ func DecodeResponseBody(dst any, resp *http.Response) (err error) {
 	if dst == nil || resp.StatusCode == 204 {
 		return
 	}
-	return DecodeFromReader(dst, httpx.ContentType(resp.Header), resp.Body)
+	return DecodeFromReader(dst, getContentType(resp.Header), resp.Body)
 }
 
 // ReadResponseBodyAsError is a response handler to read the response body

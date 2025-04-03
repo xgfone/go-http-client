@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-
-	"github.com/xgfone/go-toolkit/httpx"
 )
 
 // Doer is an interface to send a http request and get a response.
@@ -44,8 +42,8 @@ func NewClient(client Doer) *Client {
 	c := &Client{}
 	c.common = newCommon(c)
 	c.SetHTTPClient(client)
-	c.SetAccepts(httpx.MIMEApplicationJSON)
-	c.SetContentType(httpx.MIMEApplicationJSONCharsetUTF8)
+	c.SetAccepts("application/json")
+	c.SetContentType("application/json; charset=UTF-8")
 	c.SetResponseHandler2xx(DecodeResponseBody)
 	c.SetResponseHandlerDefault(ReadResponseBodyAsError)
 	return c

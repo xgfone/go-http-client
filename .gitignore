@@ -33,8 +33,19 @@ test_*
 # log
 *.log
 
-# hidden files
-.*
+vendor/
 
 # VS Code
 .vscode/
+debug
+debug_test
+
+# Mac
+.DS_Store
+
+# hidden files
+.*
+_*
+
+# bin
+cmd/

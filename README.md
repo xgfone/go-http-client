@@ -26,7 +26,9 @@ import (
 
 func main() {
 	// Create a new HTTP Client instead of the default.
-	client := httpclient.Clone().SetContentType("application/json").AddAccept("application/json")
+	client := httpclient.Clone().
+		SetContentType("application/json").
+		AddAccept("application/json")
 
 	// (Optional): Set other options.
 	// client.
@@ -40,15 +42,16 @@ func main() {
 		Password string `json:"password"`
 	}
 
-	err := client.
-		Get("http://127.0.0.1/path"). // Or SetBaseURL("http://localhost:12345").Get("/path").
+	// client.SetBaseURL("http://localhost:12345").Get("/path")
+	err := client.Get("http://127.0.0.1/path").
 		AddAccept("application/xml").
 		AddHeader("X-Header1", "value1").
 		SetHeader("X-Header2", "value2").
 		AddQuery("querykey1", "queryvalue1").
 		SetQuery("querykey2", "queryvalue2").
 
-		// Use the encoder referring to the request header "Content-Type" to encode the body.
+		// Use the encoder referring to the request header "Content-Type"
+		// to encode the body.
 		SetBody(map[string]string{"username": "xgfone", "password": "123456"}).
 
 		// Also use other body types:

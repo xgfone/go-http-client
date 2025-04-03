@@ -56,7 +56,8 @@ func main() {
 		// SetBody("this is the body as the type string").
 		// SetBody(bytes.NewBufferString("this is the body as the type io.Reader")).
 
-		// Use the decoder referring to the response header "Content-Type" to decode the body into result.
+		// Use the decoder referring to the response header "Content-Type"
+		// to decode the body into result.
 		Do(context.Background(), &result).
 		Unwrap() // Close the response body and return the inner error.
 
@@ -68,7 +69,7 @@ func main() {
 }
 ```
 
-If the request is about JSON, you maybe use these convenient functions, such as `GetJSON`, `PutJSON`, `PostJSON`, `DeleteJSON`, etc.
+There are also some convenient functions, such as `GetContext`, `PutContext`, `PostContext`, `DeleteContext`, etc.
 
 ```go
 package main

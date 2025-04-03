@@ -1,4 +1,4 @@
-// Copyright 2022 xgfone
+// Copyright 2025 xgfone
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,37 +18,42 @@ import "fmt"
 
 // Error represents an response error from the http client.
 type Error struct {
-	Code   int    `json:"code" xml:"code"`
 	Method string `json:"method" xml:"method"`
 	URL    string `json:"url" xml:"url"`
-	Data   string `json:"data" xml:"data"`
-	Err    error  `json:"err" xml:"err"`
+
+	Code int    `json:"code" xml:"code"`
+	Data string `json:"data" xml:"data"`
+	Err  error  `json:"err" xml:"err"`
 }
 
 // NewError returns a new Error.
-func NewError(code int, method, url string, err error) Error {
-	return Error{Code: code, Method: method, URL: url, Err: err}
+func NewError(method, url string, err error) Error {
+	return Error{Method: method, URL: url, Err: err}
 }
 
 func (e Error) Unwrap() error { return e.Err }
 func (e Error) Error() string { return e.String() }
 func (e Error) String() string {
-	var err string
-	if e.Err != nil {
-		err = ", err=" + e.Err.Error()
-	}
+	buf := getBuffer()
+	defer putBuffer(buf)
 
-	var data string
-	if e.Data != "" {
-		data = ", data=" + e.Data
-	}
+	_, _ = fmt.Fprintf(buf, "method=%s, url=%s", e.Method, e.URL)
 
-	var code string
 	if e.Code > 0 {
-		code = fmt.Sprintf(", code=%d", e.Code)
+		_, _ = fmt.Fprintf(buf, ", statuscode=%d", e.Code)
 	}
 
-	return fmt.Sprintf("method=%s, url=%s%s%s%s", e.Method, e.URL, code, data, err)
+	if e.Data != "" {
+		buf.WriteString(", data=")
+		buf.WriteString(e.Data)
+	}
+
+	if e.Err != nil {
+		buf.WriteString(", err=")
+		buf.WriteString(e.Err.Error())
+	}
+
+	return buf.String()
 }
 
 // StatusCode returns the status code.

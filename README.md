@@ -1,6 +1,10 @@
-# go-http-client [![Build Status](https://github.com/xgfone/go-http-client/actions/workflows/go.yml/badge.svg)](https://github.com/xgfone/go-http-client/actions/workflows/go.yml) [![GoDoc](https://pkg.go.dev/badge/github.com/xgfone/go-http-client)](https://pkg.go.dev/github.com/xgfone/go-http-client) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](https://raw.githubusercontent.com/xgfone/go-http-client/master/LICENSE)
+# A chained go HTTP client
+[![Build Status](https://github.com/xgfone/go-http-client/actions/workflows/go.yml/badge.svg)](https://github.com/xgfone/go-http-client/actions/workflows/go.yml)
+[![GoDoc](https://pkg.go.dev/badge/github.com/xgfone/go-http-client)](https://pkg.go.dev/github.com/xgfone/go-http-client)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](https://raw.githubusercontent.com/xgfone/go-http-client/master/LICENSE)
+![Minimum Go Version](https://img.shields.io/github/go-mod/go-version/xgfone/go-http-client?label=Go%2B)
+![Latest SemVer](https://img.shields.io/github/v/tag/xgfone/go-http-client?sort=semver)
 
-A chained go HTTP client supporting `Go1.8+`.
 
 ## Install
 
@@ -70,6 +74,7 @@ If the request is about JSON, you maybe use these convenient functions, such as 
 package main
 
 import (
+	"context"
 	"fmt"
 
 	httpclient "github.com/xgfone/go-http-client"
@@ -80,7 +85,7 @@ func main() {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	err := httpclient.GetJSON("http://127.0.0.1/json_data", &result)
+	err := httpclient.GetContext(context.Background(), "http://127.0.0.1/json_data", &result)
 	if err != nil {
 		fmt.Println(err)
 	} else {

@@ -14,16 +14,19 @@
 
 package httpclient
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Error represents an response error from the http client.
 type Error struct {
-	Method string `json:"method" xml:"method"`
-	URL    string `json:"url" xml:"url"`
+	Method string `json:"method,omitempty,omitzero"`
+	URL    string `json:"url,omitempty,omitzero"`
 
-	Code int    `json:"code" xml:"code"`
-	Data string `json:"data" xml:"data"`
-	Err  error  `json:"err" xml:"err"`
+	Code int    `json:"code,omitempty,omitzero"`
+	Data string `json:"data,omitempty,omitzero"`
+	Err  error  `json:"err,omitempty,omitzero"`
 }
 
 // NewError returns a new Error.
@@ -67,3 +70,34 @@ func (e Error) WithData(data string) Error { e.Data = data; return e }
 
 // WithErr returns the new Error with the given error.
 func (e Error) WithErr(err error) Error { e.Err = err; return e }
+
+var _ json.Marshaler = Error{}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (e Error) MarshalJSON() ([]byte, error) {
+	type _Error struct {
+		Method string `json:"method,omitempty,omitzero"`
+		URL    string `json:"url,omitempty,omitzero"`
+
+		Code int    `json:"code,omitempty,omitzero"`
+		Data string `json:"data,omitempty,omitzero"`
+		Err  any    `json:"err,omitempty,omitzero"`
+	}
+
+	var err any
+	switch e.Err.(type) {
+	case nil:
+	case json.Marshaler:
+		err = e.Err
+	default:
+		err = e.Err.Error()
+	}
+
+	return json.Marshal(_Error{
+		Method: e.Method,
+		URL:    e.URL,
+		Code:   e.Code,
+		Data:   e.Data,
+		Err:    err,
+	})
+}

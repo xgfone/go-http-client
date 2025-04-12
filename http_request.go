@@ -144,7 +144,7 @@ func (r *Request) Do(c context.Context, result any) (resp *Response) {
 		(!r.ignore404 || resp.resp.StatusCode != 404):
 		resp.err = r.handler.H4xx(result, resp.resp)
 
-	case r.handler.H5xx != nil:
+	case r.handler.H5xx != nil && status >= 500 && status < 600:
 		resp.err = r.handler.H5xx(result, resp.resp)
 
 	case r.handler.Default != nil:

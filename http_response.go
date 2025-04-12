@@ -44,7 +44,7 @@ func (r *Response) error() (err error) {
 	case Error:
 		err = r.err
 	default:
-		err = NewError(r.mhd, r.url, err).WithCode(r.StatusCode())
+		err = NewError(r.mhd, r.url, r.err).WithCode(r.StatusCode())
 	}
 	return
 }

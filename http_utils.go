@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -55,6 +56,36 @@ func getContentType(header http.Header) (mime string) {
 		mime = strings.TrimSpace(mime[:index])
 	}
 	return
+}
+
+func shouldDecodeResponseBody(resp *http.Response) bool {
+	switch resp.Header.Get("Content-Length") {
+	case "", "-1":
+	case "0":
+		return false
+	default:
+		return true
+	}
+
+	switch resp.Header.Get("Transfer-Encoding") {
+	case "", "null":
+	default:
+		return true
+	}
+
+	// We do not support scenarios where both "Content-Encoding" and "Transfer-Encoding"
+	// headers are absent, but the "Connection" header is present and set to "close".
+
+	if resp.Header.Get("Connection") == "close" {
+		const s = "use HTTP/1.0 response, but missing 'Content-Length' or 'Transfer-Encoding'"
+		if r := resp.Request; r != nil {
+			slog.Warn(s, "host", r.Host, "path", r.URL.Path, "method", r.Method)
+		} else {
+			slog.Warn(s)
+		}
+	}
+
+	return false
 }
 
 // EncodeData encodes the data by contentType and writes it into w.
@@ -145,7 +176,7 @@ func DecodeFromReader(dst any, ct string, r io.Reader) (err error) {
 // DecodeResponseBody is a response handler to decode the response body
 // into dst.
 func DecodeResponseBody(dst any, resp *http.Response) (err error) {
-	if dst == nil || resp.StatusCode == 204 {
+	if dst == nil || resp.StatusCode == 204 || !shouldDecodeResponseBody(resp) {
 		return
 	}
 	return DecodeFromReader(dst, getContentType(resp.Header), resp.Body)

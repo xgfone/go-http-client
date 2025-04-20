@@ -59,6 +59,10 @@ func getContentType(header http.Header) (mime string) {
 }
 
 func shouldDecodeResponseBody(resp *http.Response) bool {
+	if resp.ContentLength > 0 {
+		return true
+	}
+
 	switch resp.Header.Get("Content-Length") {
 	case "", "-1":
 	case "0":

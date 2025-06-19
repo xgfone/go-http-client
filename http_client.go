@@ -26,9 +26,13 @@ type Doer interface {
 }
 
 // DoFunc is a function to send a http request and get a response.
+//
+// DEPRECATED.
 type DoFunc func(*http.Request) (*http.Response, error)
 
 // DoFunc implements the Doer interface.
+//
+// DEPRECATED.
 func (f DoFunc) Do(req *http.Request) (*http.Response, error) { return f(req) }
 
 // Client is a http client to build a request and parse the response.

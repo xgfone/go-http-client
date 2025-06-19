@@ -210,6 +210,11 @@ func (c *common[T]) SetQuery(key, value string) *T {
 	return c.target
 }
 
+// Header returns the inner header.
+func (c *common[T]) Header() http.Header {
+	return c.header
+}
+
 // AddHeaders adds the request headers.
 func (c *common[T]) AddHeaders(headers http.Header) *T {
 	if len(headers) == 0 {

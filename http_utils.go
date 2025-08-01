@@ -89,6 +89,10 @@ func shouldDecodeResponseBody(resp *http.Response) bool {
 		}
 	}
 
+	if resp.Request.Method == http.MethodGet {
+		return true
+	}
+
 	return false
 }
 

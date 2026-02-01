@@ -32,8 +32,12 @@ var logattrpool = sync.Pool{New: func() any {
 	return &logAttr{Attrs: make([]slog.Attr, 0, 16)}
 }}
 
-func getlogattrs() *logAttr     { return logattrpool.Get().(*logAttr) }
-func putlogattrs(attr *logAttr) { logattrpool.Put(attr) }
+func getlogattrs() *logAttr { return logattrpool.Get().(*logAttr) }
+func putlogattrs(attr *logAttr) {
+	clear(attr.Attrs)
+	attr.Attrs = attr.Attrs[:0]
+	logattrpool.Put(attr)
+}
 
 // LogOnResponse is used to log the request on response.
 //
